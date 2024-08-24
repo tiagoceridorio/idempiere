@@ -37,9 +37,10 @@ import java.util.Properties;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
 import org.compiere.util.Msg;
+import org.compiere.util.Util;
  
 /**
- *	Bank Statement Line Model
+ *	Lines of deposit batch
  *
  *	@author Alejandro Falcone
  *	@version $Id: MDepositBatchLine.java,v 1.3 2007/07/02 00:51:02 afalcone Exp $
@@ -48,11 +49,21 @@ import org.compiere.util.Msg;
  public class MDepositBatchLine extends X_C_DepositBatchLine
  {
 	/**
-	 * 
+	 * generated serial id
 	 */
 	private static final long serialVersionUID = -4461960512392850996L;
 
-
+    /**
+     * UUID based Constructor
+     * @param ctx  Context
+     * @param C_DepositBatchLine_UU  UUID key
+     * @param trxName Transaction
+     */
+    public MDepositBatchLine(Properties ctx, String C_DepositBatchLine_UU, String trxName) {
+        super(ctx, C_DepositBatchLine_UU, trxName);
+		if (Util.isEmpty(C_DepositBatchLine_UU))
+			setInitialDefaults();
+    }
 
 	/**
 	 * 	Standard Constructor
@@ -64,11 +75,16 @@ import org.compiere.util.Msg;
 	{
 		super (ctx, C_DepositBatchLine_ID, trxName);
 		if (C_DepositBatchLine_ID == 0)
-		{
-			setPayAmt(Env.ZERO);
-		}
+			setInitialDefaults();
 	}	//	MDepositBatchLine
 	
+	/**
+	 * Set the initial defaults for a new record
+	 */
+	private void setInitialDefaults() {
+		setPayAmt(Env.ZERO);
+	}
+
 	/**
 	 *	Load Constructor
 	 *	@param ctx context
@@ -102,7 +118,6 @@ import org.compiere.util.Msg;
 		setLine(lineNo);
 	}	//	MDepositBatchLine
 
-
 	/**
 	 * 	Set Payment
 	 *	@param payment payment
@@ -116,11 +131,7 @@ import org.compiere.util.Msg;
 		//
 	}	//	setPayment
 
-	/**
-	 * 	Before Save
-	 *	@param newRecord new
-	 *	@return true
-	 */
+	@Override
 	protected boolean beforeSave (boolean newRecord)
 	{
 		MDepositBatch parent = new MDepositBatch(getCtx(), getC_DepositBatch_ID(), get_TrxName());
@@ -148,14 +159,8 @@ import org.compiere.util.Msg;
 		
 		return true;
 	}	//	beforeSave
-	
-	
-	/**
-	 * 	After Save
-	 *	@param newRecord new
-	 *	@param success success
-	 *	@return success
-	 */
+		
+	@Override
 	protected boolean afterSave (boolean newRecord, boolean success)
 	{
 		if (!success)
@@ -164,16 +169,13 @@ import org.compiere.util.Msg;
 		return success;
 	}	//	afterSave
 	
-	/**
-	 * 	After Delete
-	 *	@param success success
-	 *	@return success
-	 */
+	@Override
 	protected boolean afterDelete (boolean success)
 	{
 		if (!success)
 			return success;
 		updateHeader();
+		// Update C_Payment.C_DepositBatch_ID to null
 		if (getC_Payment_ID() != 0 )
 		{
 			String sql = "UPDATE C_Payment p SET C_DepositBatch_ID= Null WHERE p.C_Payment_ID=?";
@@ -182,11 +184,9 @@ import org.compiere.util.Msg;
 		
 		return success;
 	}	//	afterDelete
-	
-	
-
+		
 	/**
-	 * 	Update Header
+	 * 	Update DepositAmt of Header (C_DepositBatch)
 	 */
 	private void updateHeader()
 	{

@@ -25,7 +25,7 @@ import java.util.logging.Level;
 import org.compiere.util.CLogger;
 import org.compiere.util.DB;
 import org.compiere.util.Msg;
-
+import org.compiere.util.Util;
 
 /**
  *	User Org Access
@@ -36,10 +36,9 @@ import org.compiere.util.Msg;
 public class MUserOrgAccess extends X_AD_User_OrgAccess
 {
 	/**
-	 * 
+	 * generated serial id 
 	 */
 	private static final long serialVersionUID = 11601583764711895L;
-
 
 	/**
 	 * 	Get Organizational Access of User
@@ -53,10 +52,10 @@ public class MUserOrgAccess extends X_AD_User_OrgAccess
 	}	//	getOfUser
 
 	/**
-	 * 	Get Organizational Info
+	 * 	Get Organizational Access of User
 	 *	@param ctx context
-	 *	@param sql sql command
-	 *	@param id id
+	 *	@param sql sql statement
+	 *	@param id user id
 	 *	@return array of User Org Access
 	 */
 	private static MUserOrgAccess[] get (Properties ctx, String sql, int id)
@@ -89,9 +88,8 @@ public class MUserOrgAccess extends X_AD_User_OrgAccess
 	
 	/**	Static Logger	*/
 	private static CLogger	s_log	= CLogger.getCLogger (MUserOrgAccess.class);
-
 	
-	/**************************************************************************
+	/**
 	 * 	Load Constructor
 	 *	@param ctx context
 	 *	@param rs result set
@@ -102,8 +100,20 @@ public class MUserOrgAccess extends X_AD_User_OrgAccess
 		super(ctx, rs, trxName);
 	}	//	MUserOrgAccess
 
+    /**
+     * UUID based Constructor
+     * @param ctx  Context
+     * @param AD_User_OrgAccess_UU  UUID key
+     * @param trxName Transaction
+     */
+    public MUserOrgAccess(Properties ctx, String AD_User_OrgAccess_UU, String trxName) {
+        super(ctx, AD_User_OrgAccess_UU, trxName);
+		if (Util.isEmpty(AD_User_OrgAccess_UU))
+			setInitialDefaults();
+    }
+
 	/**
-	 * 	Persistency Constructor
+	 * 	New Record Constructor
 	 *	@param ctx context
 	 *	@param ignored ignored
 	 *	@param trxName transaction
@@ -113,9 +123,16 @@ public class MUserOrgAccess extends X_AD_User_OrgAccess
 		super(ctx, 0, trxName);
 		if (ignored != 0)
 			throw new IllegalArgumentException("Multi-Key");
-		setIsReadOnly(false);
+		setInitialDefaults();
 	}	//	MUserOrgAccess
 	
+	/**
+	 * Set the initial defaults for a new record
+	 */
+	private void setInitialDefaults() {
+		setIsReadOnly(false);
+	}
+
 	/**
 	 * 	Organization Constructor
 	 *	@param org org
@@ -132,6 +149,7 @@ public class MUserOrgAccess extends X_AD_User_OrgAccess
 	 * 	String Representation
 	 *	@return info
 	 */
+	@Override
 	public String toString()
 	{
 		StringBuilder sb = new StringBuilder("MUserOrgAccess[");
@@ -142,9 +160,8 @@ public class MUserOrgAccess extends X_AD_User_OrgAccess
 		sb.append("]");
 		return sb.toString();
 	}	//	toString
-
 	
-	/**************************************************************************
+	/**
 	 * 	Extended String Representation
 	 * 	@param ctx context
 	 *	@return extended info
@@ -161,8 +178,8 @@ public class MUserOrgAccess extends X_AD_User_OrgAccess
 	private String	m_orgName;
 	
 	/**
-	 * 	Get Client Name
-	 *	@return name
+	 * 	Get Tenant Name
+	 *	@return tenant name
 	 */
 	public String getClientName()
 	{
@@ -199,8 +216,8 @@ public class MUserOrgAccess extends X_AD_User_OrgAccess
 	}	//	getClientName
 	
 	/**
-	 * 	Get Client Name
-	 *	@return name
+	 * 	Get Organization Name
+	 *	@return organization name
 	 */
 	public String getOrgName()
 	{

@@ -22,16 +22,16 @@ import java.util.Properties;
 import org.compiere.util.KeyNamePair;
 
 /** Generated Model for C_DocType
- *  @author iDempiere (generated) 
- *  @version Release 10 - $Id$ */
+ *  @author iDempiere (generated)
+ *  @version Release 12 - $Id$ */
 @org.adempiere.base.Model(table="C_DocType")
-public class X_C_DocType extends PO implements I_C_DocType, I_Persistent 
+public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 {
 
 	/**
 	 *
 	 */
-	private static final long serialVersionUID = 20221224L;
+	private static final long serialVersionUID = 20240618L;
 
     /** Standard Constructor */
     public X_C_DocType (Properties ctx, int C_DocType_ID, String trxName)
@@ -45,6 +45,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 // 1
 			setGL_Category_ID (0);
 			setHasCharges (false);
+			setIsAutoGenerateInout (false);
+// N
+			setIsAutoGenerateInvoice (false);
+// N
 			setIsCreateCounter (true);
 // Y
 			setIsDefault (false);
@@ -77,6 +81,82 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 // 1
 			setGL_Category_ID (0);
 			setHasCharges (false);
+			setIsAutoGenerateInout (false);
+// N
+			setIsAutoGenerateInvoice (false);
+// N
+			setIsCreateCounter (true);
+// Y
+			setIsDefault (false);
+			setIsDefaultCounterDoc (false);
+			setIsDocNoControlled (true);
+// Y
+			setIsIndexed (false);
+			setIsInTransit (false);
+			setIsPickQAConfirm (false);
+			setIsPrepareSplitDocument (true);
+// Y
+			setIsShipConfirm (false);
+			setIsSOTrx (false);
+			setIsSplitWhenDifference (false);
+// N
+			setName (null);
+			setPrintName (null);
+        } */
+    }
+
+    /** Standard Constructor */
+    public X_C_DocType (Properties ctx, String C_DocType_UU, String trxName)
+    {
+      super (ctx, C_DocType_UU, trxName);
+      /** if (C_DocType_UU == null)
+        {
+			setC_DocType_ID (0);
+			setDocBaseType (null);
+			setDocumentCopies (0);
+// 1
+			setGL_Category_ID (0);
+			setHasCharges (false);
+			setIsAutoGenerateInout (false);
+// N
+			setIsAutoGenerateInvoice (false);
+// N
+			setIsCreateCounter (true);
+// Y
+			setIsDefault (false);
+			setIsDefaultCounterDoc (false);
+			setIsDocNoControlled (true);
+// Y
+			setIsIndexed (false);
+			setIsInTransit (false);
+			setIsPickQAConfirm (false);
+			setIsPrepareSplitDocument (true);
+// Y
+			setIsShipConfirm (false);
+			setIsSOTrx (false);
+			setIsSplitWhenDifference (false);
+// N
+			setName (null);
+			setPrintName (null);
+        } */
+    }
+
+    /** Standard Constructor */
+    public X_C_DocType (Properties ctx, String C_DocType_UU, String trxName, String ... virtualColumns)
+    {
+      super (ctx, C_DocType_UU, trxName, virtualColumns);
+      /** if (C_DocType_UU == null)
+        {
+			setC_DocType_ID (0);
+			setDocBaseType (null);
+			setDocumentCopies (0);
+// 1
+			setGL_Category_ID (0);
+			setHasCharges (false);
+			setIsAutoGenerateInout (false);
+// N
+			setIsAutoGenerateInvoice (false);
+// N
 			setIsCreateCounter (true);
 // Y
 			setIsDefault (false);
@@ -104,7 +184,7 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
     }
 
     /** AccessLevel
-      * @return 6 - System - Client 
+      * @return 6 - System - Client
       */
     protected int get_AccessLevel()
     {
@@ -593,10 +673,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isHasCharges()
 	{
 		Object oo = get_Value(COLUMNNAME_HasCharges);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -616,10 +696,56 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isHasProforma()
 	{
 		Object oo = get_Value(COLUMNNAME_HasProforma);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
+			return "Y".equals(oo);
+		}
+		return false;
+	}
+
+	/** Set Generate Shipment.
+		@param IsAutoGenerateInout Automatically Generate Shipment after (Sales/Purchase) Order completed
+	*/
+	public void setIsAutoGenerateInout (boolean IsAutoGenerateInout)
+	{
+		set_Value (COLUMNNAME_IsAutoGenerateInout, Boolean.valueOf(IsAutoGenerateInout));
+	}
+
+	/** Get Generate Shipment.
+		@return Automatically Generate Shipment after (Sales/Purchase) Order completed
+	  */
+	public boolean isAutoGenerateInout()
+	{
+		Object oo = get_Value(COLUMNNAME_IsAutoGenerateInout);
+		if (oo != null)
+		{
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
+			return "Y".equals(oo);
+		}
+		return false;
+	}
+
+	/** Set Generate Invoice.
+		@param IsAutoGenerateInvoice Automatically Generate Invoice after (Sales/Purchase) Order completed
+	*/
+	public void setIsAutoGenerateInvoice (boolean IsAutoGenerateInvoice)
+	{
+		set_Value (COLUMNNAME_IsAutoGenerateInvoice, Boolean.valueOf(IsAutoGenerateInvoice));
+	}
+
+	/** Get Generate Invoice.
+		@return Automatically Generate Invoice after (Sales/Purchase) Order completed
+	  */
+	public boolean isAutoGenerateInvoice()
+	{
+		Object oo = get_Value(COLUMNNAME_IsAutoGenerateInvoice);
+		if (oo != null)
+		{
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -638,10 +764,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isChargeOrProductMandatory()
 	{
 		Object oo = get_Value(COLUMNNAME_IsChargeOrProductMandatory);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -661,10 +787,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isCreateCounter()
 	{
 		Object oo = get_Value(COLUMNNAME_IsCreateCounter);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -684,10 +810,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isDefault()
 	{
 		Object oo = get_Value(COLUMNNAME_IsDefault);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -707,10 +833,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isDefaultCounterDoc()
 	{
 		Object oo = get_Value(COLUMNNAME_IsDefaultCounterDoc);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -730,10 +856,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isDocNoControlled()
 	{
 		Object oo = get_Value(COLUMNNAME_IsDocNoControlled);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -753,10 +879,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isIndexed()
 	{
 		Object oo = get_Value(COLUMNNAME_IsIndexed);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -776,10 +902,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isInTransit()
 	{
 		Object oo = get_Value(COLUMNNAME_IsInTransit);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -798,10 +924,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isNoPriceListCheck()
 	{
 		Object oo = get_Value(COLUMNNAME_IsNoPriceListCheck);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -820,10 +946,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isOverwriteDateOnComplete()
 	{
 		Object oo = get_Value(COLUMNNAME_IsOverwriteDateOnComplete);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -842,10 +968,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isOverwriteSeqOnComplete()
 	{
 		Object oo = get_Value(COLUMNNAME_IsOverwriteSeqOnComplete);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -865,10 +991,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isPickQAConfirm()
 	{
 		Object oo = get_Value(COLUMNNAME_IsPickQAConfirm);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -888,10 +1014,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isPrepareSplitDocument()
 	{
 		Object oo = get_Value(COLUMNNAME_IsPrepareSplitDocument);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -911,10 +1037,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isShipConfirm()
 	{
 		Object oo = get_Value(COLUMNNAME_IsShipConfirm);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -934,10 +1060,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isSOTrx()
 	{
 		Object oo = get_Value(COLUMNNAME_IsSOTrx);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -957,10 +1083,10 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
 	public boolean isSplitWhenDifference()
 	{
 		Object oo = get_Value(COLUMNNAME_IsSplitWhenDifference);
-		if (oo != null) 
+		if (oo != null)
 		{
-			 if (oo instanceof Boolean) 
-				 return ((Boolean)oo).booleanValue(); 
+			 if (oo instanceof Boolean)
+				 return ((Boolean)oo).booleanValue();
 			return "Y".equals(oo);
 		}
 		return false;
@@ -985,7 +1111,7 @@ public class X_C_DocType extends PO implements I_C_DocType, I_Persistent
     /** Get Record ID/ColumnName
         @return ID/ColumnName pair
       */
-    public KeyNamePair getKeyNamePair() 
+    public KeyNamePair getKeyNamePair()
     {
         return new KeyNamePair(get_ID(), getName());
     }

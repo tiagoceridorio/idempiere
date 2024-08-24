@@ -27,15 +27,15 @@ import java.util.logging.Level;
 import org.compiere.model.MAcctSchemaElement;
 import org.compiere.model.MElementValue;
 import org.compiere.model.MPeriod;
+import org.compiere.model.MProcessPara;
 import org.compiere.process.ProcessInfoParameter;
 import org.compiere.process.SvrProcess;
 import org.compiere.util.DB;
 import org.compiere.util.Language;
 import org.compiere.util.Msg;
 
-
 /**
- *	Trial Balance
+ *	Trial Balance Report
  *	
  *  @author Jorg Janke
  *
@@ -102,11 +102,11 @@ public class TrialBalance extends SvrProcess
 		+ " M_Product_ID, C_BPartner_ID, AD_OrgTrx_ID, C_LocFrom_ID,C_LocTo_ID,"
 		+ " C_SalesRegion_ID, C_Project_ID, C_Campaign_ID, C_Activity_ID,"
 		+ " User1_ID, User2_ID, A_Asset_ID, Description, LevelNo, T_TrialBalance_UU)";
-
 	
 	/**
 	 *  Prepare - e.g., get Parameters.
 	 */
+	@Override
 	protected void prepare()
 	{
 		StringBuilder sb = new StringBuilder ("AD_PInstance_ID=")
@@ -155,7 +155,7 @@ public class TrialBalance extends SvrProcess
 			else if (name.equals("IsGroupByOrg"))
 				p_IsGroupByOrg = para[i].getParameterAsBoolean();
 			else
-				log.log(Level.SEVERE, "Unknown Parameter: " + name);
+				MProcessPara.validateUnknownParameter(getProcessInfo().getAD_Process_ID(), para[i]);
 		}
 		//	Mandatory C_AcctSchema_ID
 		m_parameterWhere.append("C_AcctSchema_ID=").append(p_C_AcctSchema_ID);
@@ -272,19 +272,15 @@ public class TrialBalance extends SvrProcess
 			pstmt = null;
 		}
 	}	//	setDateAcct
-
 	
-	/**************************************************************************
-	 *  Perform process.
-	 *  @return Message to be translated
+	/**
+	 *  Insert reporting data to T_TrialBalance
+	 *  @return empty string
 	 */
 	protected String doIt()
 	{
 		createBalanceLine();
 		createDetailLines();
-
-	//	int AD_PrintFormat_ID = 134;
-	//	getProcessInfo().setTransientObject (MPrintFormat.get (getCtx(), AD_PrintFormat_ID, false));
 
 		if (log.isLoggable(Level.FINE)) log.fine((System.currentTimeMillis() - m_start) + " ms");
 		return "";
@@ -422,7 +418,7 @@ public class TrialBalance extends SvrProcess
 	}	//	createBalanceLine
 
 	/**
-	 * 	Create Beginning Balance Line
+	 * 	Create Detail Lines
 	 */
 	private void createDetailLines()
 	{

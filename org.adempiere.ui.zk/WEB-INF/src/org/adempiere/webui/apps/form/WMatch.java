@@ -52,6 +52,7 @@ import org.adempiere.webui.panel.IFormController;
 import org.adempiere.webui.panel.StatusBarPanel;
 import org.adempiere.webui.session.SessionManager;
 import org.adempiere.webui.util.ZKUpdateUtil;
+import org.adempiere.webui.window.DateRangeButton;
 import org.compiere.apps.form.Match;
 import org.compiere.minigrid.ColumnInfo;
 import org.compiere.minigrid.IDColumn;
@@ -65,26 +66,27 @@ import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.event.Events;
 import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
+import org.zkoss.zul.Hbox;
 import org.zkoss.zul.North;
-import org.zkoss.zul.South;
 import org.zkoss.zul.Separator;
+import org.zkoss.zul.South;
 import org.zkoss.zul.Space;
 import org.zkoss.zul.Vlayout;
 
 /**
- *  Manual Matching
+ *  Form to perform Matching between Purchase Order, Vendor Invoice and Material Receipt.
  *
  *  @author     Jorg Janke
- *  @version    $Id: VMatch.java,v 1.2 2006/07/30 00:51:28 jjanke Exp $
  */
 @org.idempiere.ui.zk.annotation.Form(name = "org.compiere.apps.form.VMatch")
 public class WMatch extends Match
 	implements IFormController, EventListener<Event>, WTableModelListener
 {
+	/** UI form instance */
 	private CustomForm form = new CustomForm();
 
 	/**
-	 *	Initialize Panel
+	 *	Default constructor
 	 */
 	public WMatch()
 	{
@@ -120,22 +122,22 @@ public class WMatch extends Match
 		}
 	}
 
-	/**	Window No			*/
+	/**	Window No */
 	private int         	m_WindowNo = 0;
-	/**	Logger			*/
+	/**	Logger */
 	private static final CLogger log = CLogger.getCLogger(WMatch.class);
 
 	private int     m_AD_Client_ID = Env.getAD_Client_ID(Env.getCtx());
 	private int     m_AD_Org_ID = Env.getAD_Org_ID(Env.getCtx());
 	private int     m_by = Env.getAD_User_ID(Env.getCtx());
 
-	/** Match Options           */
+	/** Matching To Options */
 	private String[] m_matchOptions = new String[] {
 		Msg.getElement(Env.getCtx(), "C_Invoice_ID", false),
 		Msg.getElement(Env.getCtx(), "M_InOut_ID", false),
 		Msg.getElement(Env.getCtx(), "C_Order_ID", false) };
 
-	/** Match Mode              	*/
+	/** Matching Mode */
 	private String[] m_matchMode = new String[] {
 		Msg.translate(Env.getCtx(), "NotMatched"),
 		Msg.translate(Env.getCtx(), "Matched")};
@@ -145,15 +147,21 @@ public class WMatch extends Match
 	private BigDecimal      m_xMatched = Env.ZERO;
 	private BigDecimal      m_xMatchedTo = Env.ZERO;
 
-	//
+	/** Main panel of {@link #form} */
 	private Panel mainPanel = new Panel();
 	private StatusBarPanel statusBar = new StatusBarPanel();
+	/** Layout of {@link #mainPanel} */
 	private Borderlayout mainLayout = new Borderlayout();
+	
+	/** North of {@link #mainLayout}. Form parameters. */
 	private Panel northPanel = new Panel();
+	/** Grid layout of {@link #northPanel} */	
 	private Grid northLayout = GridFactory.newGridLayout();
 	private Label matchFromLabel = new Label();
+	/** Select matching source (order, invoice or material receipt) */
 	private Listbox matchFrom = ListboxFactory.newDropdownListbox(m_matchOptions);
 	private Label matchToLabel = new Label();
+	/** Select matching target (order, invoice or material receipt) */
 	private Listbox matchTo = ListboxFactory.newDropdownListbox();
 	private Label matchModeLabel = new Label();
 	private Listbox matchMode = ListboxFactory.newDropdownListbox(m_matchMode);
@@ -165,30 +173,52 @@ public class WMatch extends Match
 	private Label dateToLabel = new Label();
 	private WDateEditor dateFrom = new WDateEditor("DateFrom", false, false, true, "DateFrom");
 	private WDateEditor dateTo = new WDateEditor("DateTo", false, false, true, "DateTo");
+	/** Button to start searching of source document */
 	private Button bSearch = new Button();
+	
+	/** South of {@link #mainLayout}. Matching summary info text. */
 	private Panel southPanel = new Panel();
+	/** Grid layout of {@link #southPanel} */
 	private Grid southLayout = GridFactory.newGridLayout();
 	private Label xMatchedLabel = new Label();
 	private Label xMatchedToLabel = new Label();
 	private Label differenceLabel = new Label();
+	/** Quantity from source documents */
 	private WNumberEditor xMatched = new WNumberEditor("xMatched", false, true, false, DisplayType.Quantity, "xMatched");
+	/** Quantity from target documents */
 	private WNumberEditor xMatchedTo = new WNumberEditor("xMatchedTo", false, true, false, DisplayType.Quantity, "xMatchedTo");
+	/** Difference between {@link #xMatched} and {@link #xMatchedTo} */
 	private WNumberEditor difference = new WNumberEditor("Difference", false, true, false, DisplayType.Quantity, "Difference");
+	/** Button to start the matching process */
 	private Button bProcess = new Button();
+	
+	/** Center of {@link #mainLayout} */
 	private Panel centerPanel = new Panel();
+	/** Layout of {@link #centerPanel} */
 	private Borderlayout centerLayout = new Borderlayout();
 	private Label xMatchedBorder = new Label("xMatched");
+	/** North of {@link #centerLayout}. Source documents. */
 	private WListbox xMatchedTable = ListboxFactory.newDataTable();
 	private Label xMatchedToBorder = new Label("xMatchedTo");
+	/** Center of {@link #centerLayout}. Target documents. */
 	private WListbox xMatchedToTable = ListboxFactory.newDataTable();
+	/**
+	 * Center of {@link #centerLayout} (Above {@link #xMatchedToTable}). <br/>
+	 * Container of {@link #sameProduct}, {@link #sameProduct} and {@link #sameQty}.
+	 */
 	private Panel xPanel = new Panel();
+	/** Same product flag between source and target document */
 	private Checkbox sameProduct = new Checkbox();
+	/** Same business partner flag between source and target document */
 	private Checkbox sameBPartner = new Checkbox();
+	/** Same quantity flag between source and target document */
 	private Checkbox sameQty = new Checkbox();
+	
+	/** Number of column for {@link #northLayout} */
 	private int noOfColumn;
 	
 	/**
-	 *  Static Init.
+	 *  Layout form.
 	 *  <pre>
 	 *  mainPanel
 	 *      northPanel
@@ -286,6 +316,9 @@ public class WMatch extends Match
 		centerPanel.setStyle("min-height: 300px;");
 	}
 
+	/**
+	 * Layout {@link #northPanel} and {@link #southPanel}
+	 */
 	protected void layoutParameterAndSummary() {
 		setupParameterColumns();
 		
@@ -310,7 +343,11 @@ public class WMatch extends Match
 		row.appendChild(dateFromLabel.rightAlign());		
 		row.appendChild(dateFrom.getComponent());
 		row.appendChild(dateToLabel.rightAlign());
-		row.appendChild(dateTo.getComponent());
+		Hbox boxTo = new Hbox();
+		boxTo.appendChild(dateTo.getComponent());
+		DateRangeButton drb = (new DateRangeButton(dateFrom, dateTo));
+		boxTo.appendChild(drb);
+		row.appendChild(boxTo);
 		bSearch.setStyle("float: right");
 		int r = row.getChildren().size() % noOfColumn;
 		row.appendCellChild(bSearch, noOfColumn-r);
@@ -341,6 +378,9 @@ public class WMatch extends Match
 			LayoutUtils.compactTo(southLayout, noOfColumn);
 	}
 
+	/**
+	 * Setup columns of {@link #northLayout}
+	 */
 	protected void setupParameterColumns() {
 		noOfColumn = 6;
 		if (maxWidth(MEDIUM_WIDTH-1))
@@ -378,7 +418,7 @@ public class WMatch extends Match
 
 	/**
 	 *  Dynamic Init.
-	 *  Table Layout, Visual, Listener
+	 *  Configure {@link #xMatchedTable} and {@link #xMatchedToTable}. Setup Listeners.
 	 */
 	private void dynInit()
 	{
@@ -416,14 +456,16 @@ public class WMatch extends Match
 	}   //  dynInit
 
 	/**
-	 * 	Dispose
+	 * 	Close form.
 	 */
 	public void dispose()
 	{
 		SessionManager.getAppDesktop().closeActiveWindow();
 	}	//	dispose
 
-	
+	/**
+	 * Handle onClientInfo event from browser.
+	 */
 	protected void onClientInfo()
 	{
 		if (ClientInfo.isMobile() && form.getPage() != null) 
@@ -454,9 +496,9 @@ public class WMatch extends Match
 		}
 	}
 	
-	/**************************************************************************
-	 *  Action Listener
-	 *  @param e event
+	/**
+	 * Event Listener
+	 * @param e event
 	 */
 	@Override
 	public void onEvent (Event e)
@@ -513,10 +555,9 @@ public class WMatch extends Match
 		else if (AEnv.contains(xMatchedTable, e.getTarget()))
 			cmd_searchTo();
 	}
-
 	
 	/**
-	 *  Match To Changed - set Title
+	 *  Handle selection change of {@link #matchTo}.
 	 */
 	private void cmd_matchTo()
 	{
@@ -529,7 +570,7 @@ public class WMatch extends Match
 	
 
 	/**
-	 *  Fill xMatchedTo
+	 *  Fill {@link #xMatchedToTable} from selected row of {@link #xMatchedTable}.
 	 */
 	private void cmd_searchTo()
 	{
@@ -565,14 +606,17 @@ public class WMatch extends Match
 		statusBar.setStatusDB("0");
 	}   //  cmd_seachTo
 	
+	/**
+	 * @return selected text from {@link #matchTo}
+	 */
 	private String getMatchToLabel() {
 		int index = matchTo.getSelectedIndex();
 		return matchTo.getModel().getElementAt(index).toString();
 	}
 
-	/***************************************************************************
-	 *  Table Model Listener - calculate matchd Qty
-	 *  @param e event
+	/**
+	 * Table Model Listener - calculate matched Qty
+	 * @param e event
 	 */
 	@Override
 	public void tableChanged (WTableModelEvent e)

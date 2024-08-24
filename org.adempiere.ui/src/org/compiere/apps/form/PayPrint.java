@@ -333,6 +333,7 @@ public class PayPrint {
 				ProcessInfo pi = new ProcessInfo("", format.getJasperProcess_ID());
 				pi.setRecord_ID(check.get_ID());
 				pi.setIsBatch(true);
+				pi.setTransientObject(format);
 									
 				ServerProcessCtl.process(pi, null);
 				pdfFile = pi.getPDFReport();
@@ -346,8 +347,9 @@ public class PayPrint {
 			if (pdfFile != null)
 			{
 				// increase the check document no by the number of pages of the generated pdf file
-				PdfReader document = new PdfReader(pdfFile.getAbsolutePath());
-				lastDocumentNo += document.getNumberOfPages(); 
+				try (PdfReader document = new PdfReader(pdfFile.getAbsolutePath())) {
+					lastDocumentNo += document.getNumberOfPages();
+				}
 				pdfList.add(pdfFile);
 			}
 		}
@@ -385,6 +387,7 @@ public class PayPrint {
 					ProcessInfo pi = new ProcessInfo("", format.getJasperProcess_ID());
 					pi.setRecord_ID(check.get_ID());
 					pi.setIsBatch(true);
+					pi.setTransientObject(format);
 					
 					ServerProcessCtl.process(pi, null);
 					pdfList.add(pi.getPDFReport());

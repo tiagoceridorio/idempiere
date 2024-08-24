@@ -28,6 +28,7 @@ import org.compiere.model.GridField;
 import org.compiere.model.GridTab;
 import org.compiere.model.I_C_InvoiceLine;
 import org.compiere.model.MCharge;
+import org.compiere.model.MInOut;
 import org.compiere.model.MInOutLine;
 import org.compiere.model.MInvoice;
 import org.compiere.model.MInvoiceLine;
@@ -155,6 +156,11 @@ public class CalloutRMA extends CalloutEngine {
 		MInvoice invoice = rma.getOriginalInvoice();
 		if (invoice != null) 
 		{
+    		int dropshipLocationId = -1;
+    		MOrder order = invoice.getOriginalOrder();
+    		if (order != null)
+    			dropshipLocationId = order.getDropShip_Location_ID();
+
 			pp.setM_PriceList_ID(invoice.getM_PriceList_ID());
 			pp.setPriceDate(invoice.getDateInvoiced());
 
@@ -167,7 +173,7 @@ public class CalloutRMA extends CalloutEngine {
 					invoice.getDateInvoiced(), invoice.getDateInvoiced(),
 					AD_Org_ID, rma.getShipment().getM_Warehouse_ID(), 
 					invoice.getC_BPartner_Location_ID(), // should be bill to
-					invoice.getC_BPartner_Location_ID(), rma.isSOTrx(), deliveryViaRule, null);
+					invoice.getC_BPartner_Location_ID(), dropshipLocationId, rma.isSOTrx(), deliveryViaRule, null);
 		} 
 		else 
 		{
@@ -182,7 +188,7 @@ public class CalloutRMA extends CalloutEngine {
 						order.getDateOrdered(), order.getDateOrdered(),
 						AD_Org_ID, order.getM_Warehouse_ID(), 
 						order.getC_BPartner_Location_ID(), // should be bill to
-						order.getC_BPartner_Location_ID(), rma.isSOTrx(), order.getDeliveryViaRule(), null);
+						order.getC_BPartner_Location_ID(), order.getDropShip_Location_ID(), rma.isSOTrx(), order.getDeliveryViaRule(), null);
 			} 
 			else
 				return "No Invoice/Order found the Shipment/Receipt associated";
@@ -255,4 +261,33 @@ public class CalloutRMA extends CalloutEngine {
 
 		return "";
 	}
+
+	/**
+	 * inOut - set sales rep based on shipment/receipt
+	 * 
+	 * @param ctx
+	 * @param WindowNo
+	 * @param mTab
+	 * @param mField
+	 * @param value
+	 * @return error message or ""
+	 */
+	public String inout(Properties ctx, int WindowNo, GridTab mTab, GridField mField, Object value) 
+	{
+		Integer M_InOut_ID = (Integer) value;
+		if (M_InOut_ID == null || M_InOut_ID.intValue() == 0)
+			return "";
+
+		MInOut inout = new MInOut(ctx, M_InOut_ID, null);
+		if (inout.get_ID() != 0)
+		{
+			if (inout.getSalesRep_ID() > 0)
+				mTab.setValue("SalesRep_ID", Integer.valueOf(inout.getSalesRep_ID()));
+			else
+				mTab.setValue("SalesRep_ID", null);
+		}
+
+		return "";
+	}
+
 }

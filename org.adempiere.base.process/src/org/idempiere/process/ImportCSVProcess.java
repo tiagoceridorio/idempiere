@@ -47,6 +47,7 @@ import org.compiere.model.GridTable;
 import org.compiere.model.GridWindow;
 import org.compiere.model.MImportTemplate;
 import org.compiere.model.MLookup;
+import org.compiere.model.MProcessPara;
 import org.compiere.process.ProcessInfo;
 import org.compiere.process.ProcessInfoParameter;
 import org.compiere.process.SvrProcess;
@@ -72,7 +73,7 @@ public class ImportCSVProcess extends SvrProcess implements DataStatusListener {
 			} else if ("ImportMode".equals(name)) {
 				p_ImportMode = para.getParameterAsString();
 			} else {
-				log.log(Level.SEVERE, "Unknown Parameter: " + name);
+				MProcessPara.validateUnknownParameter(getProcessInfo().getAD_Process_ID(), para);
 			}
 		}
 	}
@@ -146,7 +147,7 @@ public class ImportCSVProcess extends SvrProcess implements DataStatusListener {
 		m_file_istream = new FileInputStream(filePath);
 
 		m_file_istream = m_importTemplate.validateFile(m_file_istream);
-		File outFile = csvImporter.fileImport(activeTab, childTabs, m_file_istream, Charset.forName(m_importTemplate.getCharacterSet()), p_ImportMode, processUI);
+		File outFile = csvImporter.fileImport(activeTab, childTabs, m_file_istream, Charset.forName(m_importTemplate.getCharacterSet()), p_ImportMode, m_importTemplate.getSeparatorChar(), m_importTemplate.getQuoteChar(), processUI);
 		// TODO: Potential improvement - traverse the outFile and call addLog with the results
 
 		if (processUI != null)
@@ -193,7 +194,7 @@ public class ImportCSVProcess extends SvrProcess implements DataStatusListener {
             	log.warning(msg);
             }
 
-            // Refresh the list on dependant fields
+            // Refresh the list on dependent fields
     		for (GridField dependentField : l_gridTab.getDependantFields(mField.getColumnName()))
     		{
     			//  if the field has a lookup

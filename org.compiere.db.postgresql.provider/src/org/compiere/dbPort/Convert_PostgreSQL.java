@@ -24,6 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.compiere.db.DB_PostgreSQL;
+import org.compiere.model.SystemProperties;
 import org.compiere.util.CLogger;
 import org.compiere.util.Env;
 import org.compiere.util.Util;
@@ -98,6 +99,7 @@ public class Convert_PostgreSQL extends Convert_SQL92 {
 
 			statement = convertSysDate(statement);
 			statement = convertSimilarTo(statement);
+			statement = DB_PostgreSQL.removeNativeKeyworkMarker(statement);
 
 		} else {
 
@@ -141,14 +143,14 @@ public class Convert_PostgreSQL extends Convert_SQL92 {
 			statement = recoverQuotedStrings(statement, retVars, nonce);
 		result.add(statement);
 
-		if ("true".equals(System.getProperty("org.idempiere.db.debug"))) {
-			String filterPgDebug = System.getProperty("org.idempiere.db.debug.filter");
+		if (SystemProperties.isDBDebug()) {
+			String filterPgDebug = SystemProperties.getDBDebugFilter();
 			boolean print = true;
 			if (filterPgDebug != null)
 				print = statement.matches(filterPgDebug);
-			// log.warning("Oracle -> " + oraStatement);
 			if (print) {
-				log.warning("Oracle -> " + sqlStatement);
+				if (SystemProperties.isDBDebugConvert())
+					log.warning("Oracle -> " + sqlStatement);
 				log.warning("PgSQL  -> " + statement);
 			}
 		}
@@ -169,11 +171,16 @@ public class Convert_PostgreSQL extends Convert_SQL92 {
 		return retValue;
 	}
 	
+	/**
+	 * Convert LIKE to SIMILAR TO depending on the user preference P|IsUseSimilarTo - applies just to SELECT queries
+	 * @param statement
+	 * @return
+	 */
 	private String convertSimilarTo(String statement) {
 		String retValue = statement;
 		boolean useSimilarTo = isUseSimilarTo();
-		if (useSimilarTo) {
-			String replacement = "SIMILAR TO";
+		if (useSimilarTo && statement.matches("(?i)^\\s*SELECT\\b.*")) {
+			final String replacement = "SIMILAR TO";
 			try {
 				Matcher m = likePattern.matcher(retValue);
 				retValue = m.replaceAll(replacement);
@@ -186,6 +193,10 @@ public class Convert_PostgreSQL extends Convert_SQL92 {
 		return retValue;
 	}
 
+	/**
+	 * True if the user preference IsUseSimilarTo is set to Y
+	 * @return
+	 */
 	private boolean isUseSimilarTo() {
 		return "Y".equals(Env.getContext(Env.getCtx(), "P|IsUseSimilarTo"));
 	}

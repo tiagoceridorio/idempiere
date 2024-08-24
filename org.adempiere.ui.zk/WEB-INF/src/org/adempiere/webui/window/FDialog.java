@@ -51,7 +51,6 @@ import org.zkoss.zk.ui.event.EventListener;
  *
  * @author  <a href="mailto:agramdass@gmail.com">Ashley G Ramdass</a>
  * @date    Feb 25, 2007
- * @version $Revision: 0.10 $
  */
 @Deprecated(since="10", forRemoval=true)
 public class FDialog
@@ -103,6 +102,8 @@ public class FDialog
     }
 
 	/**
+	 * @deprecated Use {@link Dialog}.warn(windowNo, adMessage, message, null) instead
+	 * 
 	 *	Display warning with warning icon
 	 *	@param	windowNo	Number of Window
      *  @param comp
@@ -377,9 +378,11 @@ public class FDialog
 			weditor = new WNumberEditor();
 			break;
 		case DisplayType.TableDir:
+		case DisplayType.TableDirUU:
 			weditor = new WTableDirEditor(lookup, "", "", true, false, true);
 			break;
 		case DisplayType.Search:
+		case DisplayType.SearchUU:
 			weditor = new WSearchEditor(lookup, "", "", true, false, true);
 			break;
 		case DisplayType.ChosenMultipleSelectionSearch:
@@ -434,7 +437,6 @@ public class FDialog
      * @param adMessage
      * @param adMessageArgs
      * @param title
-     * @param correctInput
      * @param callback
      */
     public static void askForInputTextConfirmation(int windowNo, WEditor weditor, String adMessage, Object[] adMessageArgs, String title, final Callback<Map.Entry<Boolean, String>> callback)

@@ -33,9 +33,11 @@ import org.adempiere.webui.part.WindowContainer;
 import org.adempiere.webui.util.ZKUpdateUtil;
 import org.adempiere.webui.window.Dialog;
 import org.adempiere.webui.window.WTask;
+import org.compiere.model.MForm;
 import org.compiere.model.MInfoWindow;
 import org.compiere.model.MQuery;
 import org.compiere.model.MTask;
+import org.compiere.model.SystemProperties;
 import org.compiere.util.Env;
 import org.compiere.wf.MWorkflow;
 import org.zkoss.util.media.AMedia;
@@ -47,25 +49,27 @@ import org.zkoss.zul.Tab;
 import org.zkoss.zul.Tabpanels;
 
 /**
- * A Tabbed MDI implementation
+ * Abstract base class for Tabbed MDI implementation
  * @author hengsin
- *
  */
 public abstract class TabbedDesktop extends AbstractDesktop {
-
+	/** Controller for open desktop windows. */
 	protected WindowContainer windowContainer;
 
+	/**
+	 * Default constructor
+	 */
 	public TabbedDesktop() {
 		super();
 		windowContainer = new WindowContainer();
 	}
 
 	/**
-     *
      * @param processId
      * @param soTrx
      * @return ProcessDialog
      */
+	@Override
 	public ProcessDialog openProcessDialog(int processId, boolean soTrx) {
 		ProcessDialog pd = new ProcessDialog (processId, soTrx, getPredefinedContextVariables());
 
@@ -82,10 +86,10 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 	}
 
     /**
-     *
      * @param formId
-     * @return ADWindow
+     * @return ADForm
      */
+	@Override
 	public ADForm openForm(int formId) {
 		ADForm form = ADForm.openForm(formId, null, null, getPredefinedContextVariables(), isMenuSOTrx());
 
@@ -95,7 +99,7 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 			//do not show window title when open as tab
 			form.setTitle(null);
 			preOpenNewTab();
-			windowContainer.addWindow(tabPanel, form.getFormName(), true, null);
+			windowContainer.addWindow(tabPanel, form.getFormName(), true, DecorateInfo.get(MForm.get(formId)));
 			form.focus();
 		} else {
 			form.setAttribute(Window.MODE_KEY, form.getWindowMode());
@@ -106,7 +110,6 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 	}
 
 	/**
-	 *
 	 * @param infoId
 	 */
 	@Override
@@ -127,9 +130,9 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 	}
 	
 	/**
-	 *
 	 * @param workflow_ID
 	 */
+	@Override
 	public void openWorkflow(int workflow_ID) {
 		WFPanel p = new WFPanel();
 		p.load(workflow_ID);
@@ -141,27 +144,29 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 	}
 	
 	/**
-	 *
 	 * @param windowId
 	 * @param callback
 	 */
+	@Override
 	public void openWindow(int windowId, Callback<ADWindow> callback) {
 		openWindow(windowId, null, callback);
 	}
 
 	/**
-	 *
 	 * @param windowId
      * @param query
      * @param callback
 	 */
+	@Override
 	public void openWindow(int windowId, MQuery query, Callback<ADWindow> callback) {
 		final ADWindow adWindow = new ADWindow(Env.getCtx(), windowId, query);
 
-		final DesktopTabpanel tabPanel = new DesktopTabpanel();		
-		String id = AdempiereIdGenerator.escapeId(adWindow.getTitle());
+		final DesktopTabpanel tabPanel = new DesktopTabpanel();
 		int windowNo = adWindow.getADWindowContent().getWindowNo();
-		tabPanel.setId(id+"_"+windowNo);
+		if (SystemProperties.isZkUnitTest()) {
+			String id = AdempiereIdGenerator.escapeId(adWindow.getTitle());
+			tabPanel.setId(id+"_"+windowNo);
+		}
 		final Tab tab = windowContainer.addWindow(tabPanel, adWindow.getTitle(), true, DecorateInfo.get(adWindow));
 
 		tab.setClosable(false);		
@@ -172,9 +177,9 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 	}
 
 	/**
-     *
      * @param taskId
      */
+	@Override
 	public void openTask(int taskId) {
 		MTask task = new MTask(Env.getCtx(), taskId, null);
 		new WTask(task.getName(), task);
@@ -183,13 +188,13 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 	/**
 	 * @param url
 	 */
+	@Override
 	public void showURL(String url, boolean closeable)
     {
     	showURL(url, url, closeable);
     }
 
 	/**
-	 *
 	 * @param url
 	 * @param title
 	 * @param closeable
@@ -201,7 +206,7 @@ public abstract class TabbedDesktop extends AbstractDesktop {
     }
 
     /**
-     * @param content
+     * @param content HTML content
      * @param title
      * @param closeable
      */
@@ -217,8 +222,7 @@ public abstract class TabbedDesktop extends AbstractDesktop {
     }
 
     /**
-     *
-     * @param fr
+     * @param fr Iframe
      * @param title
      * @param closeable
      */
@@ -244,6 +248,7 @@ public abstract class TabbedDesktop extends AbstractDesktop {
      * @param AD_Window_ID
      * @param query
      */
+    @Override
     public void showZoomWindow(int AD_Window_ID, MQuery query)
     {
     	final ADWindow wnd = new ADWindow(Env.getCtx(), AD_Window_ID, query);
@@ -267,7 +272,7 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 	}
 
 	/**
-	 *
+	 * Show window in new tab
 	 * @param window
 	 */
 	protected void showEmbedded(Window window)
@@ -280,12 +285,26 @@ public abstract class TabbedDesktop extends AbstractDesktop {
     	String title = window.getTitle();
     	window.setTitle(null);
     	preOpenNewTab();
-    	if (Window.INSERT_NEXT.equals(window.getAttribute(Window.INSERT_POSITION_KEY)))
+    	if (Window.INSERT_NEXT.equals(window.getAttribute(Window.INSERT_POSITION_KEY))) {
     		windowContainer.insertAfter(windowContainer.getSelectedTab(), tabPanel, title, true, true, null);
-    	else if(Window.REPLACE.equals(window.getAttribute(Window.INSERT_POSITION_KEY)))
-    		windowContainer.replace(windowContainer.getSelectedTab(), window, title);
-    	else
-    		windowContainer.addWindow(tabPanel, title, true, null);
+		}
+		else if(Window.REPLACE.equals(window.getAttribute(Window.INSERT_POSITION_KEY))) {
+			Tab refTab = windowContainer.getSelectedTab();
+			Object windowNoAttribute = window.getAttribute(WindowContainer.REPLACE_WINDOW_NO);
+			if (windowNoAttribute != null && windowNoAttribute instanceof Integer) {
+				int windowNo = (Integer)windowNoAttribute;
+				refTab = windowContainer.getTab(windowNo);
+			}
+
+			if (refTab == null)
+				windowContainer.addWindow(tabPanel, title, true, null);
+			else
+				windowContainer.replace(refTab, window, title);
+
+		}
+		else {
+	    	windowContainer.addWindow(tabPanel, title, true, null);
+		}
     	if (window instanceof IHelpContext)
 			Events.sendEvent(new Event(WindowContainer.ON_WINDOW_CONTAINER_SELECTION_CHANGED_EVENT, window));
    	}
@@ -319,18 +338,20 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 	}
 
 	/**
+	 * Get component of active tab
 	 * @return Component
 	 */
+	@Override
 	public Component getActiveWindow()
 	{
 		return windowContainer.getSelectedTab().getLinkedPanel().getFirstChild();
 	}
 
 	/**
-	 *
 	 * @param windowNo
-	 * @return boolean
+	 * @return true if found and close
 	 */
+	@Override
 	public boolean closeWindow(int windowNo)
 	{
 		Tabbox tabbox = windowContainer.getComponent();
@@ -346,15 +367,19 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 				if (windowNo == (Integer)att)
 				{
 					Tab tab = panel.getLinkedTab();
-					panel.getLinkedTab().onClose();
-					if (tab.getParent() == null)
-					{
-						unregisterWindow(windowNo);
+					if (tab != null) {
+						panel.getLinkedTab().onClose();
+						if (tab.getParent() == null)
+						{
+							unregisterWindow(windowNo);
+							return true;
+						}
+						else
+						{
+							return false;
+						}
+					} else {
 						return true;
-					}
-					else
-					{
-						return false;
 					}
 				}
 			}
@@ -369,6 +394,9 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 	{
 	}
 	
+	/**
+	 * Runnable to create window content ({@link ADWindow#createPart(Object)})
+	 */
 	class OpenWindowRunnable implements Runnable {
 
 		private final ADWindow adWindow;
@@ -376,6 +404,12 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 		private final DesktopTabpanel tabPanel;
 		private Callback<ADWindow> callback;
 
+		/**
+		 * @param adWindow
+		 * @param tab
+		 * @param tabPanel
+		 * @param callback
+		 */
 		protected OpenWindowRunnable(ADWindow adWindow, Tab tab, DesktopTabpanel tabPanel, Callback<ADWindow> callback) {
 			this.adWindow = adWindow;
 			this.tab = tab;
@@ -396,6 +430,11 @@ public abstract class TabbedDesktop extends AbstractDesktop {
 		}		
 	}
 
+	/**
+	 * @param title
+	 * @param windowNo 
+	 */
+	@Override
 	public void setTabTitle(String title, int windowNo) {
 		windowContainer.setTabTitle(title, windowNo);		
 	}

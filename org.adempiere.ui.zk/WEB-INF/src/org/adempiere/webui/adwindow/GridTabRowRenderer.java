@@ -51,12 +51,14 @@ import org.compiere.util.Env;
 import org.compiere.util.Msg;
 import org.compiere.util.Util;
 import org.zkoss.zk.au.out.AuScript;
+import org.zkoss.zk.ui.AbstractComponent;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.Executions;
 import org.zkoss.zk.ui.HtmlBasedComponent;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.event.Events;
+import org.zkoss.zk.ui.sys.ComponentCtrl;
 import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zul.Cell;
 import org.zkoss.zul.Grid;
@@ -79,28 +81,53 @@ import org.zkoss.zul.impl.XulElement;
  */
 public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt, RendererCtrl, EventListener<Event> {
 
+	/** Cell div component attribute to hold field column name value **/
+	protected static final String COLUMN_NAME_ATTR = "columnName";
+
+	/** Cell div component attribute to hold reference to editor component use to create display text for field **/
+	private static final String DISPLAY_COMPONENT_ATTR = "display.component";
+
+	/** Boolean execution attribute to indicate execution is handling the "Select" checkbox's ON_CHECK event **/
+	private static final String GRID_VIEW_ON_SELECT_ROW_ATTR = "gridView.onSelectRow";
+
+	/** Editor component attribute to store row index (absolute) **/
 	public static final String GRID_ROW_INDEX_ATTR = "grid.row.index";
+	
+	//styles for grid cell
 	private static final String CELL_DIV_STYLE = "height: 100%; cursor: pointer; ";
 	private static final String CELL_DIV_STYLE_ALIGN_CENTER = CELL_DIV_STYLE + "text-align:center; ";
 	private static final String CELL_DIV_STYLE_ALIGN_RIGHT = CELL_DIV_STYLE + "text-align:right; ";
 	
+	/** default max length for display text for field **/
 	private static final int MAX_TEXT_LENGTH_DEFAULT = 60;
 	private GridTab gridTab;
 	private int windowNo;
+	/** Sync field editor changes to GridField **/
 	private GridTabDataBinder dataBinder;
+	/** field editors **/
 	private Map<GridField, WEditor> editors = new LinkedHashMap<GridField, WEditor>();
+	/** readonly field editors to get display text for field value **/
 	private Map<GridField, WEditor> readOnlyEditors = new LinkedHashMap<GridField, WEditor>();
 	private Paging paging;
 
+	/** internal listener for row event **/
 	private RowListener rowListener;
 
+	/** Grid that own this renderer **/
 	private Grid grid = null;
+	/** GridView that uses this renderer **/
 	private GridView gridPanel = null;
+	/** current focus row **/ 
 	private Row currentRow;
+	/** values of current row. updated in {@link #render(Row, Object[], int)}. **/
 	private Object[] currentValues;
+	/** true if current row is in edit mode **/
 	private boolean editing = false;
+	/** index of current row **/
 	private int currentRowIndex = -1;
+	/** AD window content part that own this renderer **/
 	private AbstractADWindowContent m_windowPanel;
+	/** internal listener for button ActionEvent **/
 	private ActionListener buttonListener;
 	/**
 	 * Flag detect this view has customized column or not
@@ -110,6 +137,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	/** DefaultFocusField		*/
 	private WEditor	defaultFocusField = null;
 
+	/** editor configuration for readonly field editor **/
 	private final static IEditorConfiguration readOnlyEditorConfiguration = new IEditorConfiguration() {
 		@Override
 		public Boolean getReadonly() {
@@ -123,7 +151,6 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	};
 	
 	/**
-	 *
 	 * @param gridTab
 	 * @param windowNo
 	 */
@@ -133,6 +160,11 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		this.dataBinder = new GridTabDataBinder(gridTab);
 	}
 
+	/**
+	 * Get editor for GridField.
+	 * @param gridField
+	 * @return {@link WEditor}
+	 */
 	private WEditor getEditorCell(GridField gridField) {
 		WEditor editor = editors.get(gridField);
 		if (editor != null)  {
@@ -145,6 +177,11 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		return editor;
 	}
 
+	/**
+	 * Setup field editor
+	 * @param gridField
+	 * @param editor
+	 */
 	private void prepareFieldEditor(GridField gridField, WEditor editor) {
 			if (editor instanceof WButtonEditor)
             {
@@ -169,15 +206,25 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		}
 	}
 
+	/**
+	 * Get column index for field
+	 * @param field
+	 * @return column index for field, -1 if not found
+	 */
 	public int getColumnIndex(GridField field) {
 		GridField[] fields = gridPanel.getFields();
 		for(int i = 0; i < fields.length; i++) {
 			if (fields[i] == field)
 				return i;
 		}
-		return 0;
+		return -1;
 	}
 
+	/**
+	 * Create a disabled checkbox component for value
+	 * @param value
+	 * @return readonly checkbox component
+	 */
 	private Component createReadonlyCheckbox(Object value) {
 		Checkbox checkBox = new Checkbox();
 		if (value != null && "true".equalsIgnoreCase(value.toString()))
@@ -188,6 +235,11 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		return checkBox;
 	}
 
+	/**
+	 * Create invisible component for GridField with IsHeading=Y.<br/>
+	 * To fill up space allocated for field editor component.
+	 * @return invisible text box component
+	 */
 	private Component createInvisibleComponent() {
 		Textbox textBox = new Textbox();
 		textBox.setDisabled(true);
@@ -214,7 +266,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	}
 	
 	/**
-	 * call {@link #getDisplayText(Object, GridField, int, boolean)} with isForceGetValue = false
+	 * Call {@link #getDisplayText(Object, GridField, int, boolean)} with isForceGetValue = false
 	 * @param value
 	 * @param gridField
 	 * @param rowIndex
@@ -229,7 +281,8 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	 * @param value
 	 * @param gridField
 	 * @param rowIndex
-	 * @param isForceGetValue
+	 * @param isForceGetValue true to return text for field value even if IsDisplay return false. This is to allow Grid customization
+	 * to override IsDisplay result.
 	 * @return display text
 	 */
 	private String getDisplayText(Object value, GridField gridField, int rowIndex, boolean isForceGetValue)
@@ -237,8 +290,8 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		if (value == null)
 			return "";
 
+		GridRowCtx gridRowCtx = new GridRowCtx(Env.getCtx(), gridTab, rowIndex);
 		if (rowIndex >= 0) {
-			GridRowCtx gridRowCtx = new GridRowCtx(Env.getCtx(), gridTab, rowIndex);
 			if (!isForceGetValue && !gridField.isDisplayed(gridRowCtx, true)) {
 				return "";
 			}
@@ -251,21 +304,23 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		else if (readOnlyEditors.get(gridField) != null) 
 		{
 			WEditor editor = readOnlyEditors.get(gridField);			
-			return editor.getDisplayTextForGridView(value);
+			return editor.getDisplayTextForGridView(gridRowCtx, value);
 		}
     	else
     		return value.toString();
 	}
 	
 	/**
-	 * get component to display value of a field.
-	 * when display is boolean or button, return correspond component
-	 * other return a label with text get from {@link #getDisplayText(Object, GridField, int, boolean)} 
+	 * Get component to display value of a field.<br/>
+	 * When display type is boolean or button, return corresponding component.<br/>
+	 * Otherwise, use Label or Component from {@link WEditor#getDisplayComponent()} to display text from {@link #getDisplayText(Object, GridField, int, boolean)} 
+	 * (As it is, only {@link Html} is supported for {@link WEditor#getDisplayComponent()}).
 	 * @param rowIndex
 	 * @param value
 	 * @param gridField
-	 * @param isForceGetValue
-	 * @return
+	 * @param isForceGetValue true to return Component with value even if IsDisplay return false. This is to allow Grid customization 
+	 * preference to override IsDisplay result.
+	 * @return {@link Component}
 	 */
 	private Component getDisplayComponent(int rowIndex, Object value, GridField gridField, boolean isForceGetValue) {
 		Component component;
@@ -274,6 +329,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		} else if (gridField.isHeading()) {
 			component = createInvisibleComponent();
 		} else if (gridField.getDisplayType() == DisplayType.Button) {
+			// Each row renderer --- ctx per row wise
 			GridRowCtx gridRowCtx = new GridRowCtx(Env.getCtx(), gridTab, rowIndex);
 			WButtonEditor editor = new WButtonEditor(gridField, rowIndex);
 			editor.setValue(gridTab.getValue(rowIndex, gridField.getColumnName()));
@@ -293,7 +349,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 				if (component instanceof Html){
 					((Html)component).setContent(text);
 				}else{
-					throw new UnsupportedOperationException("neet a componet has setvalue function");
+					throw new UnsupportedOperationException("Only implemented for Html component.");
 				}
 			}
 		}
@@ -301,6 +357,12 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		return component;
 	}
 
+	/**
+	 * Apply AD_Style to field.
+	 * @param gridField
+	 * @param rowIndex
+	 * @param component
+	 */
 	private void applyFieldStyle(GridField gridField, int rowIndex,
 			HtmlBasedComponent component) {
 		int AD_Style_ID = gridField.getAD_FieldStyle_ID();
@@ -312,6 +374,11 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		setComponentStyle(component, style.buildStyle(ThemeManager.getTheme(), gridRowCtx));
 	}
 
+	/**
+	 * Set component's style, sclass or zclass property
+	 * @param component
+	 * @param style "@sclass=" for sclass for "@zclass=" for zclass. default to style if there's no prefix. 
+	 */
 	protected  void setComponentStyle(HtmlBasedComponent component, String style) {
 		if (style != null && style.startsWith(MStyle.SCLASS_PREFIX)) {
 			String sclass = style.substring(MStyle.SCLASS_PREFIX.length());
@@ -334,6 +401,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	}
 
 	/**
+	 * Set label text, shorten text if length exceed define max length.
 	 * @param text
 	 * @param label
 	 */
@@ -342,17 +410,14 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		final int MAX_TEXT_LENGTH = MSysConfig.getIntValue(MSysConfig.MAX_TEXT_LENGTH_ON_GRID_VIEW,MAX_TEXT_LENGTH_DEFAULT,Env.getAD_Client_ID(Env.getCtx()));
 		if (text != null && text.length() > MAX_TEXT_LENGTH)
 			display = text.substring(0, MAX_TEXT_LENGTH - 3) + "...";
-		// since 5.0.8, the org.zkoss.zhtml.Text is encoded by default
-//		if (display != null)
-//			display = XMLs.encodeText(display);
 		label.setValue(display);
 		if (text != null && text.length() > MAX_TEXT_LENGTH)
 			label.setTooltiptext(text);
 	}
 
 	/**
-	 *
-	 * @return active editor list
+	 * Get editor list
+	 * @return field editor list
 	 */
 	public List<WEditor> getEditors() {
 		List<WEditor> editorList = new ArrayList<WEditor>();
@@ -363,6 +428,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	}
 	
 	/**
+	 * Set paging component
 	 * @param paging
 	 */
 	public void setPaging(Paging paging) {
@@ -391,7 +457,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 					else
 						child = parent;
 				}
-				Component component = div!=null ? (Component) div.getAttribute("display.component") : null;
+				Component component = div!=null ? (Component) div.getAttribute(DISPLAY_COMPONENT_ATTR) : null;
 				if (updateCellLabel) {
 					if (component instanceof Label) {
 						Label label = (Label)component;
@@ -429,9 +495,10 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	}
 
 	/**
+	 * Render data for row.
 	 * @param row
-	 * @param data
-	 * @param index
+	 * @param data Object[] values for row
+	 * @param index row index within current page (i.e if page size is 25, index is one of 0 to 24).
 	 */
 	@Override
 	public void render(Row row, Object[] data, int index) throws Exception {
@@ -539,11 +606,16 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 				if (readOnlyEditor != null) {
 					readOnlyEditors.put(gridPanelFields[i], readOnlyEditor);
 				}
-				
-				editor.getComponent().setWidgetOverride("fieldHeader", HelpController.escapeJavascriptContent(gridPanelFields[i].getHeader()));
-    			editor.getComponent().setWidgetOverride("fieldDescription", HelpController.escapeJavascriptContent(gridPanelFields[i].getDescription()));
-    			editor.getComponent().setWidgetOverride("fieldHelp", HelpController.escapeJavascriptContent(gridPanelFields[i].getHelp()));
-    			editor.getComponent().setWidgetListener("onFocus", "zWatch.fire('onFieldTooltip', this, null, this.fieldHeader(), this.fieldDescription(), this.fieldHelp());");
+								    			
+    			if (editor.getComponent() instanceof AbstractComponent) {
+    				String entityTypeInf = Env.IsShowTechnicalInfOnHelp(Env.getCtx())?"this.fieldEntityType());":"'');";
+    				editor.getComponent().setWidgetOverride("fieldHeader", HelpController.escapeJavascriptContent(gridPanelFields[i].getHeader()));
+        			editor.getComponent().setWidgetOverride("fieldDescription", HelpController.escapeJavascriptContent(gridPanelFields[i].getDescription()));
+        			editor.getComponent().setWidgetOverride("fieldHelp", HelpController.escapeJavascriptContent(gridPanelFields[i].getHelp()));
+        			editor.getComponent().setWidgetOverride("fieldEntityType", HelpController.escapeJavascriptContent(gridPanelFields[i].getEntityType()));
+        			editor.getComponent().setWidgetListener("onFocus", "zWatch.fire('onFieldTooltip', this, null, this.fieldHeader(), this.fieldDescription(), this.fieldHelp(),"+entityTypeInf);
+    				((AbstractComponent)editor.getComponent()).addCallback(ComponentCtrl.AFTER_PAGE_DETACHED, (t) -> {((AbstractComponent)t).setWidgetListener("onFocus", null);});
+    			}
     			
     			//	Default Focus
     			if (defaultFocusField == null && gridPanelFields[i].isDefaultFocus())
@@ -572,7 +644,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 			if (column.isVisible()) {
 				Component component = getDisplayComponent(rowIndex, currentValues[i], gridPanelFields[i], isGridViewCustomized);
 				div.appendChild(component);
-				div.setAttribute("display.component", component);
+				div.setAttribute(DISPLAY_COMPONENT_ATTR, component);
 				if (gridPanelFields[i].isHeading()) {
 					component.setVisible(false);
 				}
@@ -585,14 +657,14 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 				}
 				
 				GridRowCtx ctx = new GridRowCtx(Env.getCtx(), gridTab, rowIndex);
-				if (! (gridPanelFields[i].isDisplayed(ctx, true) || gridPanelFields[i].isDisplayedGrid())){
+				if (!gridPanelFields[i].isDisplayedGrid(ctx, true)){
 					// IDEMPIERE-2253 
 					component.setVisible(false);
 				}
 			}
 			div.setStyle(divStyle);
 			ZKUpdateUtil.setWidth(div, "100%");
-			div.setAttribute("columnName", gridPanelFields[i].getColumnName());
+			div.setAttribute(COLUMN_NAME_ATTR, gridPanelFields[i].getColumnName());
 			div.addEventListener(Events.ON_CLICK, rowListener);
 			div.addEventListener(Events.ON_DOUBLE_CLICK, rowListener);						
 			row.appendChild(div);
@@ -631,6 +703,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	}
 
 	/**
+	 * Set current row
 	 * @param row
 	 */
 	public void setCurrentRow(Row row) {
@@ -686,7 +759,8 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	}
 
 	/**
-	 * @return Row
+	 * Get current row
+	 * @return current {@link Row}
 	 */
 	public Row getCurrentRow() {
 		return currentRow;
@@ -700,7 +774,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	}
 
 	/**
-	 * Enter edit mode
+	 * Enter edit mode for current focus row.
 	 */
 	public void editCurrentRow() {
 		if (ClientInfo.isMobile()) {
@@ -748,7 +822,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		            Properties ctx = isDetailPane() ? new GridRowCtx(Env.getCtx(), gridTab) 
 		            	: gridPanelFields[i].getVO().ctx;
 		            //check context
-					if (!gridPanelFields[i].isDisplayed(ctx, true)){
+					if (!gridPanelFields[i].isDisplayedGrid(ctx, true)){
 						// IDEMPIERE-2253 
 						editor.getComponent().setVisible(false);
 					}
@@ -764,6 +838,10 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		}
 	}
 
+	/**
+	 * Is own by DetailPane
+	 * @return true if it is own by {@link DetailPane}.
+	 */
 	private boolean isDetailPane() {
 		Component parent = grid.getParent();
 		while (parent != null) {
@@ -778,6 +856,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	/**
 	 * @see RowRendererExt#getControls()
 	 */
+	@Override
 	public int getControls() {
 		return DETACH_ON_RENDER;
 	}
@@ -785,6 +864,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	/**
 	 * @see RowRendererExt#newCell(Row)
 	 */
+	@Override
 	public Component newCell(Row row) {
 		return null;
 	}
@@ -792,6 +872,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	/**
 	 * @see RowRendererExt#newRow(Grid)
 	 */
+	@Override
 	public Row newRow(Grid grid) {
 		return null;
 	}
@@ -799,23 +880,27 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	/**
 	 * @see RendererCtrl#doCatch(Throwable)
 	 */
+	@Override
 	public void doCatch(Throwable ex) throws Throwable {
 	}
 
 	/**
 	 * @see RendererCtrl#doFinally()
 	 */
+	@Override
 	public void doFinally() {
 	}
 
 	/**
 	 * @see RendererCtrl#doTry()
 	 */
+	@Override
 	public void doTry() {
 	}
 
 	/**
-	 * set focus to first active editor
+	 * Set focus to first writable field editor (or default focus field editor if it is writable).<br/>
+	 * If no field editor is writable, set focus to first visible field editor.
 	 */
 	public void focusToFirstEditor() {
 		if (currentRow != null && currentRow.getParent() != null) {
@@ -847,6 +932,10 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 		}
 	}
 
+	/**
+	 * Set focus to editor
+	 * @param toFocus
+	 */
 	protected void focusToEditor(WEditor toFocus) {
 		Component c = toFocus.getComponent();
 		if (c instanceof EditorBox) {
@@ -860,7 +949,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	}
 	
 	/**
-	 * set focus to next readwrite editor from ref
+	 * Set focus to next writable editor from ref
 	 * @param ref
 	 */
 	public void focusToNextEditor(WEditor ref) {
@@ -880,13 +969,16 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	}
 
 	/**
-	 *
+	 * Set {@link GridView} that own this renderer.
 	 * @param gridPanel
 	 */
 	public void setGridPanel(GridView gridPanel) {
 		this.gridPanel = gridPanel;
 	}
 
+	/**
+	 * Internal listener for row event (ON_CLICK, ON_DOUBLE_CLICK and ON_OK).
+	 */
 	static class RowListener implements EventListener<Event> {
 
 		private Grid _grid;
@@ -897,7 +989,7 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 
 		public void onEvent(Event event) throws Exception {
 			if (Events.ON_CLICK.equals(event.getName())) {
-				if (Executions.getCurrent().getAttribute("gridView.onSelectRow") != null)
+				if (Executions.getCurrent().getAttribute(GRID_VIEW_ON_SELECT_ROW_ATTR) != null)
 					return;
 				Event evt = new Event(Events.ON_CLICK, _grid, event.getTarget());
 				Events.sendEvent(_grid, evt);
@@ -915,13 +1007,16 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 	}
 
 	/**
-	 * @return boolean
+	 * Is current row in edit mode
+	 * @return true if current row is in edit mode, false otherwise
 	 */
 	public boolean isEditing() {
 		return editing;
 	}
 
 	/**
+	 * Set AD window content part that own this renderer.<br/>
+	 * {@link #buttonListener} need this to call {@link AbstractADWindowContent#actionPerformed(ActionEvent)}.
 	 * @param windowPanel
 	 */
 	public void setADWindowPanel(AbstractADWindowContent windowPanel) {
@@ -957,12 +1052,16 @@ public class GridTabRowRenderer implements RowRenderer<Object[]>, RowRendererExt
 			else
 				Events.sendEvent(event.getTarget().getParent(), event);
 		} else if (event.getTarget() instanceof Checkbox) {
-			Executions.getCurrent().setAttribute("gridView.onSelectRow", Boolean.TRUE);
+			Executions.getCurrent().setAttribute(GRID_VIEW_ON_SELECT_ROW_ATTR, Boolean.TRUE);
 			Checkbox checkBox = (Checkbox) event.getTarget();
 			Events.sendEvent(gridPanel, new Event("onSelectRow", gridPanel, checkBox));
 		}
 	}
 
+	/**
+	 * Is show current row indicator
+	 * @return {@link GridView#isShowCurrentRowIndicatorColumn}
+	 */
 	private boolean isShowCurrentRowIndicatorColumn() {
 		return gridPanel != null && gridPanel.isShowCurrentRowIndicatorColumn();
 	}

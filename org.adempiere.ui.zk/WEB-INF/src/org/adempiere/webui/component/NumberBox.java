@@ -39,39 +39,44 @@ import org.zkoss.zul.Popup;
 import org.zkoss.zul.Vbox;
 
 /**
- *
+ * Composite component of {@link Decimalbox} and {@link Button}
  * @author  <a href="mailto:agramdass@gmail.com">Ashley G Ramdass</a>
  * @date    Mar 11, 2007
- * @version $Revision: 0.10 $
  * 
  * @author Low Heng Sin
  */
 public class NumberBox extends Div
 {
 	/**
-	 * 
+	 * generated serial id
 	 */
 	private static final long serialVersionUID = 8543853599051754172L;
 
+	/** Text box for calculator */
 	private Textbox txtCalc = new Textbox();
     
-    boolean integral = false;
+	/** true for integer, false for number with decimal point */
+    protected boolean integral = false;
     
-    NumberFormat format = null;
+    protected NumberFormat format = null;
     
     private Decimalbox decimalBox = null;
     private Button btn;
 
+    /** calculator popup */
 	private Popup popup;
     
+	/**
+	 * @param integral
+	 */
 	public NumberBox(boolean integral)
 	{
 		this(integral, false);
 	}
 	
     /**
-     * 
      * @param integral
+     * @param tableEditor
      */
     public NumberBox(boolean integral, boolean tableEditor)
     {
@@ -80,6 +85,10 @@ public class NumberBox extends Div
         init(tableEditor);
     }
     
+    /**
+     * Layout component
+     * @param tableEditor
+     */
     private void init(boolean tableEditor)
     {
 		decimalBox = new Decimalbox();
@@ -179,7 +188,7 @@ public class NumberBox extends Div
     }
     
     /**
-     * 
+     * Set number format
      * @param format
      */
     public void setFormat(NumberFormat format)
@@ -188,7 +197,7 @@ public class NumberBox extends Div
     }
     
     /**
-     * 
+     * Set value to {@link #decimalBox}
      * @param value
      */
     public void setValue(Object value)
@@ -204,7 +213,7 @@ public class NumberBox extends Div
     }
     
     /**
-     * 
+     * Get value from {@link #decimalBox}
      * @return BigDecimal
      */
     public BigDecimal getValue()
@@ -213,7 +222,7 @@ public class NumberBox extends Div
     }
     
     /**
-     * 
+     * Get text from {@link #decimalBox}
      * @return text
      */
     public String getText()
@@ -224,7 +233,7 @@ public class NumberBox extends Div
     }
     
     /**
-     * 
+     * Set value to {@link #decimalBox}
      * @param value
      */
     public void setValue(String value)
@@ -248,6 +257,10 @@ public class NumberBox extends Div
     	}    	
     }
     
+    /**
+     * Create calculator popup
+     * @return Popup
+     */
     private Popup getCalculatorPopup()
     {
         Popup popup = new Popup();
@@ -437,16 +450,15 @@ public class NumberBox extends Div
     }
 
     /**
-     * 
-     * @return boolean
+     * @return true if it is for integer, false for decimal number
      */
 	public boolean isIntegral() {
 		return integral;
 	}
 
 	/**
-	 * 
-	 * @param integral
+	 * Set integer or decimal number mode
+	 * @param integral true for integer mode, false for decimal number mode
 	 */
 	public void setIntegral(boolean integral) {
 		this.integral = integral;
@@ -457,7 +469,8 @@ public class NumberBox extends Div
 	}
 	
 	/**
-	 * 
+	 * Set enable/disable.<br/>
+	 * Hide calculator button if set to disable.
 	 * @param enabled
 	 */
 	public void setEnabled(boolean enabled)
@@ -483,14 +496,20 @@ public class NumberBox extends Div
 	}
 	
 	/**
-	 * 
-	 * @return boolean
+	 * @return true if enable, false otherwise
 	 */
 	public boolean isEnabled()
 	{
 		 return !decimalBox.isReadonly();
 	}
 	
+	/**
+	 * If evtnm is ON_CLICK, add listener to {@link #btn}.<br/>
+	 * Otherwise, add listener to {@link #decimalBox}.
+	 * @param evtnm
+	 * @param listener
+	 * @return true if listener added
+	 */
 	@Override
 	public boolean addEventListener(String evtnm, EventListener<?> listener)
 	{
@@ -504,6 +523,9 @@ public class NumberBox extends Div
 	     }
 	}
 	
+	/**
+	 * Focus to {@link #decimalBox}
+	 */
 	@Override
 	public void focus()
 	{
@@ -511,7 +533,6 @@ public class NumberBox extends Div
 	}
 	
 	/**
-	 * 
 	 * @return decimalBox
 	 */
 	public Decimalbox getDecimalbox()
@@ -519,11 +540,18 @@ public class NumberBox extends Div
 		return decimalBox;
 	}
 	
+	/**
+	  @return Button
+	 */
 	public Button getButton()
 	{
 		return btn;
 	}
 	
+	/**
+	 * Set to form or grid view mode.
+	 * @param flag true for grid view mode, false otherwise
+	 */
 	public void setTableEditorMode(boolean flag) {
 		if (flag) {
 			ZKUpdateUtil.setHflex(this, "0");

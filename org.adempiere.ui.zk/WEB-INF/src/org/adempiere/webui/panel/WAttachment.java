@@ -45,6 +45,7 @@ import org.adempiere.webui.component.ToolBar;
 import org.adempiere.webui.component.Window;
 import org.adempiere.webui.event.DialogEvents;
 import org.adempiere.webui.factory.ButtonFactory;
+import org.adempiere.webui.session.SessionManager;
 import org.adempiere.webui.theme.ThemeManager;
 import org.adempiere.webui.util.ZKUpdateUtil;
 import org.adempiere.webui.window.Dialog;
@@ -85,16 +86,16 @@ import org.zkoss.zul.impl.Utils;
 import org.zkoss.zul.impl.XulElement;
 
 /**
- *
+ * Attachment window
  * @author Low Heng Sin
  *
  */
 public class WAttachment extends Window implements EventListener<Event>
 {
 	/**
-	 * 
+	 * generated serial id
 	 */
-	private static final long serialVersionUID = -710884973406502168L;
+	private static final long serialVersionUID = -8534334828539841412L;
 
 	private static final CLogger log = CLogger.getCLogger(WAttachment.class);
 
@@ -148,6 +149,9 @@ public class WAttachment extends Window implements EventListener<Event>
 	private Progressmeter progress = new Progressmeter(0);
 
 	private static List<String> autoPreviewList;
+	
+	/* SysConfig USE_ESC_FOR_TAB_CLOSING */
+	private boolean isUseEscForTabClosing = MSysConfig.getBooleanValue(MSysConfig.USE_ESC_FOR_TAB_CLOSING, false, Env.getAD_Client_ID(Env.getCtx()));
 
 	static {
 		autoPreviewList = new ArrayList<String>();
@@ -170,12 +174,13 @@ public class WAttachment extends Window implements EventListener<Event>
 	 *  @param Record_ID record key
 	 *  @param trxName transaction
 	 */
+	@Deprecated
 	public WAttachment(	int WindowNo, int AD_Attachment_ID,
 						int AD_Table_ID, int Record_ID, String trxName)
 	{
-		this(WindowNo, AD_Attachment_ID, AD_Table_ID, Record_ID, trxName, (EventListener<Event>)null);
+		this(WindowNo, AD_Attachment_ID, AD_Table_ID, Record_ID, null, trxName, (EventListener<Event>)null);
 	}
-	
+
 	/**
 	 *	Constructor.
 	 *	loads Attachment, if ID &lt;&gt; 0
@@ -186,13 +191,31 @@ public class WAttachment extends Window implements EventListener<Event>
 	 *  @param trxName transaction
 	 *  @param eventListener
 	 */
+	@Deprecated
 	public WAttachment(	int WindowNo, int AD_Attachment_ID,
-						int AD_Table_ID, int Record_ID, String trxName, EventListener<Event> eventListener)
+			int AD_Table_ID, int Record_ID, String trxName, EventListener<Event> eventListener)
+	{
+		this(WindowNo, AD_Attachment_ID, AD_Table_ID, Record_ID, null, trxName, eventListener);
+	}
+
+	/**
+	 *	Constructor.
+	 *	loads Attachment, if ID &lt;&gt; 0
+	 *  @param WindowNo window no
+	 *  @param AD_Attachment_ID attachment
+	 *  @param AD_Table_ID table
+	 *  @param Record_ID record key
+	 *  @param Record_UU record UUID
+	 *  @param trxName transaction
+	 *  @param eventListener listener for ON_WINDOW_CLOSE event
+	 */
+	public WAttachment(	int WindowNo, int AD_Attachment_ID,
+						int AD_Table_ID, int Record_ID, String Record_UU, String trxName, EventListener<Event> eventListener)
 	{
 		super();
 		maxPreviewSize = MSysConfig.getIntValue(MSysConfig.ZK_MAX_ATTACHMENT_PREVIEW_SIZE, 1048576, Env.getAD_Client_ID(Env.getCtx()));
 
-		if (log.isLoggable(Level.CONFIG)) log.config("ID=" + AD_Attachment_ID + ", Table=" + AD_Table_ID + ", Record=" + Record_ID);
+		if (log.isLoggable(Level.CONFIG)) log.config("ID=" + AD_Attachment_ID + ", Table=" + AD_Table_ID + ", Record=" + Record_ID + ", RecordUU=" + Record_UU);
 
 		m_WindowNo = WindowNo;
 		this.addEventListener(DialogEvents.ON_WINDOW_CLOSE, this);
@@ -215,7 +238,7 @@ public class WAttachment extends Window implements EventListener<Event>
 		if (AD_Attachment_ID > 0)
 			m_attachment = new MAttachment (Env.getCtx(), AD_Attachment_ID, trxName);
 		else
-			m_attachment = new MAttachment (Env.getCtx(), AD_Table_ID, Record_ID, trxName);
+			m_attachment = new MAttachment (Env.getCtx(), AD_Table_ID, Record_ID, Record_UU, trxName);
 
 		loadAttachments();
 
@@ -223,13 +246,7 @@ public class WAttachment extends Window implements EventListener<Event>
 		{
 			setAttribute(Window.MODE_KEY, Window.MODE_HIGHLIGHTED);
 			AEnv.showWindow(this);
-			if (autoPreview(0, true))
-			{
-				//String script = "setTimeout(\"zk.Widget.$('"+ preview.getUuid() + "').$n().src = zk.Widget.$('" +
-				//preview.getUuid() + "').$n().src\", 1000)";
-				//Clients.response(new AuScript(null, script));
-			}
-
+			autoPreview(0, true);
 		}
 		catch (Exception e)
 		{
@@ -247,7 +264,7 @@ public class WAttachment extends Window implements EventListener<Event>
 	} // WAttachment
 
 	/**
-	 *	Static setup.
+	 *	layout window
 	 *  <pre>
 	 *  - northPanel
 	 *      - toolBar
@@ -259,8 +276,7 @@ public class WAttachment extends Window implements EventListener<Event>
 	 *  </pre>
 	 *  @throws Exception
 	 */
-
-	void staticInit() throws Exception
+	protected void staticInit() throws Exception
 	{
 		this.setAttribute(AdempiereWebUI.WIDGET_INSTANCE_NAME, "attachment");
 		this.setMaximizable(true);
@@ -289,7 +305,6 @@ public class WAttachment extends Window implements EventListener<Event>
 
 
 		North northPanel = new North();
-		northPanel.setStyle("padding: 4px; background: #e8e8e8;");
 		northPanel.setCollapsible(false);
 		northPanel.setSplittable(false);
 
@@ -344,7 +359,6 @@ public class WAttachment extends Window implements EventListener<Event>
 			bLoad.setImage(ThemeManager.getThemeResource("images/Import24.png"));
 		bLoad.setSclass("img-btn");
 		bLoad.setId("bLoad");
-//		bLoad.setAttribute("org.zkoss.zul.image.preload", Boolean.TRUE);
 		bLoad.setTooltiptext(Msg.getMsg(Env.getCtx(), "Load"));
 		bLoad.setUpload("multiple=true," + AdempiereWebUI.getUploadSetting());
 		bLoad.addEventListener(Events.ON_UPLOAD, this);
@@ -367,7 +381,6 @@ public class WAttachment extends Window implements EventListener<Event>
 		
 		Center centerPane = new Center();
 		centerPane.setSclass("dialog-content");
-		//centerPane.setAutoscroll(true); // not required the preview has its own scroll bar
 		mainPanel.appendChild(centerPane);
 		centerPane.appendChild(previewPanel);
 		ZKUpdateUtil.setVflex(previewPanel, "1");
@@ -419,6 +432,9 @@ public class WAttachment extends Window implements EventListener<Event>
 		addEventListener(Events.ON_CANCEL, e -> onCancel());
 	}
 	
+	/**
+	 * Handle onClientInfo event
+	 */
 	protected void onClientInfo()
 	{		
 		if (getPage() != null)
@@ -435,9 +451,8 @@ public class WAttachment extends Window implements EventListener<Event>
 	}
 
 	/**
-	 * 	Dispose
+	 * Dispose
 	 */
-
 	public void dispose ()
 	{
 		preview = null;
@@ -445,12 +460,12 @@ public class WAttachment extends Window implements EventListener<Event>
 	} // dispose
 
 	/**
-	 *	Load Attachments
+	 * Load Attachment items
 	 */
-
 	private void loadAttachments()
 	{
-		log.config("");
+		if (log.isLoggable(Level.CONFIG))
+			log.config("");
 
 		//	Set Text/Description
 
@@ -475,6 +490,12 @@ public class WAttachment extends Window implements EventListener<Event>
 
 	} // loadAttachment
 
+	/**
+	 * auto preview attachment item
+	 * @param index
+	 * @param immediate
+	 * @return true if preview is available for attachment item
+	 */
 	private boolean autoPreview(int index, boolean immediate)
 	{
 		MAttachmentEntry entry = m_attachment.getEntry(index);
@@ -554,6 +575,11 @@ public class WAttachment extends Window implements EventListener<Event>
 		}
 	}
 
+	/**
+	 * Get file extension
+	 * @param name
+	 * @return file extension or empty string
+	 */
 	private String getExtension(String name) {
 		int index = name.lastIndexOf(".");
 		if (index > 0) {
@@ -563,7 +589,7 @@ public class WAttachment extends Window implements EventListener<Event>
 	}
 
 	/**
-	 *  Display gif or jpg in gifPanel
+	 *  Display attachment item
 	 * 	@param index index
 	 */
 
@@ -581,6 +607,9 @@ public class WAttachment extends Window implements EventListener<Event>
 		bPreview.setEnabled(false);
 	}   //  displayData
 
+	/**
+	 * Clear preview content ({@link #preview} and {@link #customPreviewComponent})
+	 */
 	private void clearPreview()
 	{
 		preview.setSrc(null);
@@ -610,7 +639,7 @@ public class WAttachment extends Window implements EventListener<Event>
 					&& Medias.PDF_MIME_TYPE.equals(contentType)) {
 					mediaVersion++;
 					String url = Utils.getDynamicMediaURI(this, mediaVersion, media.getName(), media.getFormat());	
-					String pdfJsUrl = "pdf.js/web/viewer.html?file="+url;
+					String pdfJsUrl = AEnv.toPdfJsUrl(url);
 					preview.setSrc(pdfJsUrl);
 				} else {
 					preview.setContent(media);
@@ -626,11 +655,10 @@ public class WAttachment extends Window implements EventListener<Event>
 	}
 
 	/**
-	 * 	Get File Name with index
+	 * 	Get file Name by index
 	 *	@param index index
 	 *	@return file name or null
 	 */
-
 	private String getFileName (int index)
 	{
 		String fileName = null;
@@ -645,10 +673,10 @@ public class WAttachment extends Window implements EventListener<Event>
 	}	//	getFileName
 
 	/**
-	 *	Action Listener
+	 *	handle event
 	 *  @param e event
 	 */
-
+	@Override
 	public void onEvent(Event e)
 	{
 		//	Save and Close
@@ -712,15 +740,24 @@ public class WAttachment extends Window implements EventListener<Event>
 
 	}	//	onEvent
 
-	private void onCancel() {
+	/**
+	 * Handle onCancel event
+	 */
+	private void onCancel() {		
+		// do not allow to close tab for Events.ON_CTRL_KEY event
+		if(isUseEscForTabClosing)
+			SessionManager.getAppDesktop().setCloseTabWithShortcut(false);
 		//	Cancel
 		dispose();
 	}
 
+	/**
+	 * Process uploaded media
+	 * @param media
+	 */
 	private void processUploadMedia(Media media) {
 		if (media != null && ((media.isBinary() && media.getByteData().length>0) || (!media.isBinary() && media.getStringData().length() > 0)))
 		{
-//				pdfViewer.setContent(media);
 			;
 		}
 		else
@@ -755,6 +792,11 @@ public class WAttachment extends Window implements EventListener<Event>
 		}
 	}
 
+	/**
+	 * Get byte[] data from media
+	 * @param media
+	 * @return byte[] data
+	 */
 	private byte[] getMediaData(Media media)  {
 		byte[] bytes = null;
 		
@@ -787,11 +829,12 @@ public class WAttachment extends Window implements EventListener<Event>
 	}
 
 	/**
-	 *	Delete entire Attachment
+	 * Delete entire Attachment
 	 */
 	private void deleteAttachment()
 	{
-		log.info("");
+		if (log.isLoggable(Level.INFO))
+			log.info("");
 
 		Dialog.ask(m_WindowNo, "AttachmentDelete?", new Callback<Boolean>() {
 			
@@ -811,12 +854,12 @@ public class WAttachment extends Window implements EventListener<Event>
 	}	//	deleteAttachment
 
 	/**
-	 *	Delete Attachment Entry
+	 * Delete current Attachment Entry
 	 */
-
 	private void deleteAttachmentEntry()
 	{
-		log.info("");
+		if (log.isLoggable(Level.INFO))
+			log.info("");
 
 		final int index = cbContent.getSelectedIndex();
 		String fileName = getFileName(index);
@@ -844,13 +887,13 @@ public class WAttachment extends Window implements EventListener<Event>
 	}	//	deleteAttachment
 
 	/**
-	 *	Save Attachment to File
+	 * Save current Attachment entry to File
 	 */
-
 	private void saveAttachmentToFile()
 	{
 		int index = cbContent.getSelectedIndex();
-		log.info("index=" + index);
+		if (log.isLoggable(Level.INFO))
+			log.info("index=" + index);
 
 		if (m_attachment.getEntryCount() < index)
 			return;
@@ -870,7 +913,11 @@ public class WAttachment extends Window implements EventListener<Event>
 		}
 	}	//	saveAttachmentToFile
 	
-	
+	/**
+	 * Get charset from content type header. Fallback to UTF-8
+	 * @param contentType
+	 * @return charset
+	 */
 	static private String getCharset(String contentType) {
 		if (contentType != null) {
 			int j = contentType.indexOf("charset=");
@@ -882,6 +929,9 @@ public class WAttachment extends Window implements EventListener<Event>
 		return "UTF-8";
 	}	
 
+	/**
+	 * Save all attachment items as zip file
+	 */
 	private void saveAllAsZip() {
 		File zipFile = m_attachment.saveAsZip();
 		
@@ -897,6 +947,9 @@ public class WAttachment extends Window implements EventListener<Event>
 		}
 	}
 	
+	/**
+	 * Email current attachment entry
+	 */
 	private void sendMail()
 	{
 		int index = cbContent.getSelectedIndex();
@@ -909,7 +962,7 @@ public class WAttachment extends Window implements EventListener<Event>
 
 		WEMailDialog dialog = new WEMailDialog (Msg.getMsg(Env.getCtx(), "SendMail"),
 			from, "", "", "", new FileDataSource(attachment),
-			m_WindowNo, m_attachment.getAD_Table_ID(), m_attachment.getRecord_ID(), null);
+			m_WindowNo, m_attachment.getAD_Table_ID(), m_attachment.getRecord_ID(), m_attachment.getRecord_UU(), null);
 
 		AEnv.showWindow(dialog);
 	}

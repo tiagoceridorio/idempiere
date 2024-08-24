@@ -15,6 +15,8 @@
 package org.adempiere.webui.panel;
 
 import org.adempiere.webui.apps.AEnv;
+import org.adempiere.webui.component.Anchorchildren;
+import org.adempiere.webui.component.Anchorlayout;
 import org.adempiere.webui.component.Menupopup;
 import org.adempiere.webui.desktop.IDesktop;
 import org.adempiere.webui.event.ZoomEvent;
@@ -50,8 +52,6 @@ import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.event.Events;
 import org.zkoss.zk.ui.util.Clients;
-import org.zkoss.zul.Anchorchildren;
-import org.zkoss.zul.Anchorlayout;
 import org.zkoss.zul.Html;
 import org.zkoss.zul.Menuitem;
 import org.zkoss.zul.Panel;
@@ -61,9 +61,8 @@ import org.zkoss.zul.Style;
 import org.zkoss.zul.Vlayout;
 
 /**
- * 
+ * Controller for context help, context tool tip and context quick info gadget.
  * @author Elaine
- *
  */
 public class HelpController
 {	
@@ -71,6 +70,9 @@ public class HelpController
 	private Panel pnlToolTip, pnlContextHelp, pnlQuickInfo;
 	private Html htmlToolTip, htmlContextHelp, htmlQuickInfo;
 	
+	/**
+	 * Default constructor
+	 */
 	public HelpController()
     {
 		dashboardLayout = new Anchorlayout();
@@ -79,6 +81,11 @@ public class HelpController
         ZKUpdateUtil.setHflex(dashboardLayout, "1");
     }
 
+	/**
+	 * Render tooltips, context help and quick info.
+	 * @param parent
+	 * @param desktopImpl
+	 */
 	public void render(Component parent, IDesktop desktopImpl)
     {
     	Style style = new Style();
@@ -134,12 +141,13 @@ public class HelpController
         pnlToolTip.appendChild(content);
         content.appendChild(htmlToolTip = new Html());
         htmlToolTip.setWidgetOverride("defaultMessage", "'"+Msg.getMsg(Env.getCtx(), "PlaceCursorIntoField")+"'");
-        htmlToolTip.setWidgetOverride("onFieldTooltip", "function(origin,opts,header,description,help)" +
+        htmlToolTip.setWidgetOverride("onFieldTooltip", "function(origin,opts,header,description,help,entityType)" +
         		"{let s='<html><body><div class=\"help-content\">';" +
         		"if (typeof header == 'undefined') {s=s+'<i>'+this.defaultMessage+'</i>';} " +
         		"else {s=s+'<b>'+header+'</b>';" +
         		"if (typeof description=='string' && description.length > 0) {s=s+'<br><br><i>'+description+'</i>';}" +
-        		"if (typeof help=='string' && help.length > 0) {s=s+'<br><br>'+help;}}" +
+        		"if (typeof help=='string' && help.length > 0) {s=s+'<br><br>'+help;}" +
+        		"if (typeof entityType=='string' && entityType.length > 0) {s=s+'<p class=\"help-entitytype\">[ '+entityType+' ]</p>';}}" +
         		"s=s+'</div></body></html>';this.setContent(s);}");
         setupFieldTooltip();
         
@@ -160,6 +168,9 @@ public class HelpController
         renderQuickInfo(null);
     }
 
+	/**
+	 * Setup client side script for field tooltip
+	 */
 	public void setupFieldTooltip() {
 		Clients.response("helpControllerFieldTooltip", 
 				new AuScript(htmlToolTip, "(function(){let w=zk.Widget.$('#"+htmlToolTip.getUuid()
@@ -167,7 +178,7 @@ public class HelpController
 	}
     
 	/**
-	 * Make tooltip content for a field 
+	 * Render tooltip content for a field 
 	 * @param field
 	 */
     public void renderToolTip(GridField field)
@@ -176,6 +187,7 @@ public class HelpController
     	String desc = null;
     	String help = null;
     	String otherContent = null;
+    	String entityType = null;
     	
     	if (field != null)
     	{
@@ -187,6 +199,10 @@ public class HelpController
 				
 				if (field.getHelp().length() != 0)
 					help = field.getHelp();
+				
+				if (Env.IsShowTechnicalInfOnHelp(Env.getCtx())
+						&& field.getEntityType().length() != 0)
+					entityType = field.getEntityType();
 			}
     	}
     	else
@@ -194,17 +210,17 @@ public class HelpController
     		otherContent = Msg.getMsg(Env.getCtx(), "PlaceCursorIntoField");
     	}
     	
-    	renderToolTip(hdr, desc, help, otherContent);
+    	renderToolTip(hdr, desc, help, otherContent, entityType);
     }
     
     /**
-     * Make tooltip content, when  hdr == null, show otherContent
+     * Render tooltip content, when hdr == null, show otherContent
      * @param hdr
      * @param desc
      * @param help
      * @param otherContent
      */
-    public void renderToolTip(String hdr, String  desc, String help, String otherContent)
+    public void renderToolTip(String hdr, String  desc, String help, String otherContent,String entityType)
     {
     	if (Util.isEmpty(hdr) && Util.isEmpty(otherContent))
     		pnlToolTip.setVisible(false);
@@ -219,9 +235,9 @@ public class HelpController
     			otherContent = Msg.getMsg(Env.getCtx(), "PlaceCursorIntoField");
     		}
     		
-    			sb.append("<i>(");
-    			sb.append (otherContent);
-    			sb.append (")</i>");
+			sb.append("<i>(");
+			sb.append (otherContent);
+			sb.append (")</i>");
     	}else{
     		sb.append("<b>");
     		sb.append(hdr);
@@ -238,12 +254,27 @@ public class HelpController
     			sb.append(help);
     		}
     		
+    		if (Env.IsShowTechnicalInfOnHelp(Env.getCtx()))
+    		{
+	    		if (entityType != null && entityType.trim().length() > 0){
+	    			sb.append("<p class=\"help-entitytype\">[ ");
+	    			sb.append(entityType);
+	    			sb.append(" ]</p>");
+
+	    		}
+    		}
+    		
     	}    	
     	
     	sb.append("</div>\n</body>\n</html>");
     	htmlToolTip.setContent(sb.toString());
     }
     
+    /**
+     * Render context help (AD_CtxHelpMsg)
+     * @param ctxType
+     * @param recordId
+     */
     public void renderCtxHelp(String ctxType, int recordId)
     {
     	if (ctxType != X_AD_CtxHelp.CTXTYPE_Home && ctxType != X_AD_CtxHelp.CTXTYPE_Tab && 
@@ -304,6 +335,8 @@ public class HelpController
 					
 					if (translatedContent.length() > 0)
 					{
+						appendEntityType(translatedContent, tab.getEntityType());
+						
 						translatedContent.insert(0, "<p>\n");
 						translatedContent.append("</p>");
 					}
@@ -324,6 +357,8 @@ public class HelpController
 				
 				if (baseContent.length() > 0)
 				{
+					appendEntityType(baseContent, tab.getEntityType());
+					
 					baseContent.insert(0, "<p>\n");
 					baseContent.append("</p>");
 				}
@@ -352,6 +387,8 @@ public class HelpController
 					
 					if (translatedContent.length() > 0)
 					{
+						appendEntityType(translatedContent, process.getEntityType());
+						
 						translatedContent.insert(0, "<p>\n");
 						translatedContent.append("</p>");
 					}
@@ -372,6 +409,8 @@ public class HelpController
 				
 				if (baseContent.length() > 0)
 				{
+					appendEntityType(baseContent, process.getEntityType());
+					
 					baseContent.insert(0, "<p>\n");
 					baseContent.append("</p>");
 				}
@@ -400,6 +439,8 @@ public class HelpController
 
 					if (translatedContent.length() > 0)
 					{
+						appendEntityType(translatedContent, form.getEntityType());
+						
 						translatedContent.insert(0, "<p>\n");
 						translatedContent.append("</p>");
 					}
@@ -419,6 +460,8 @@ public class HelpController
 				
 				if (baseContent.length() > 0)
 				{
+					appendEntityType(baseContent, form.getEntityType());
+					
 					baseContent.insert(0, "<p>\n");
 					baseContent.append("</p>");
 				}
@@ -458,6 +501,8 @@ public class HelpController
 					
 					if (translatedContent.length() > 0)
 					{
+						appendEntityType(translatedContent, info.getEntityType());
+						
 						translatedContent.insert(0, "<p>\n");
 						translatedContent.append("</p>");
 					}
@@ -489,6 +534,8 @@ public class HelpController
 				
 				if (baseContent.length() > 0)
 				{
+					appendEntityType(baseContent, info.getEntityType());
+					
 					baseContent.insert(0, "<p>\n");
 					baseContent.append("</p>");
 				}
@@ -516,6 +563,8 @@ public class HelpController
 					
 					if (translatedContent.length() > 0)
 					{
+						appendEntityType(translatedContent, workflow.getEntityType());
+						
 						translatedContent.insert(0, "<p>\n");
 						translatedContent.append("</p>");
 					}
@@ -535,6 +584,8 @@ public class HelpController
 				
 				if (baseContent.length() > 0)
 				{
+					appendEntityType(baseContent, workflow.getEntityType());
+					
 					baseContent.insert(0, "<p>\n");
 					baseContent.append("</p>");
 				}
@@ -564,6 +615,8 @@ public class HelpController
 					
 					if (translatedContent.length() > 0)
 					{
+						appendEntityType(translatedContent, task.getEntityType());
+						
 						translatedContent.insert(0, "<p>\n");
 						translatedContent.append("</p>");
 					}					
@@ -583,6 +636,8 @@ public class HelpController
 				
 				if (baseContent.length() > 0)
 				{
+					appendEntityType(baseContent, task.getEntityType());
+					
 					baseContent.insert(0, "<p>\n");
 					baseContent.append("</p>");
 				}
@@ -611,6 +666,8 @@ public class HelpController
 					
 					if (translatedContent.length() > 0)
 					{
+						appendEntityType(translatedContent, node.getEntityType());
+						
 						translatedContent.insert(0, "<p>\n");
 						translatedContent.append("</p>");
 					}
@@ -630,6 +687,8 @@ public class HelpController
 				
 				if (baseContent.length() > 0)
 				{
+					appendEntityType(baseContent, node.getEntityType());
+					
 					baseContent.insert(0, "<p>\n");
 					baseContent.append("</p>");
 				}
@@ -653,6 +712,12 @@ public class HelpController
     	htmlContextHelp.setContent(sb.toString());
     }
 
+    /**
+     * Add context help suggestion popup menu
+     * @param po
+     * @param baseContent
+     * @param translatedContent
+     */
     private void addContextHelpMenupopup(PO po, StringBuilder baseContent, StringBuilder translatedContent) {
     	if (!MRole.getDefault().isTableAccessExcluded(MCtxHelpSuggestion.Table_ID)) {
     		ContextHelpMenupopup popup = new ContextHelpMenupopup(po, baseContent.toString(), translatedContent.toString());
@@ -661,12 +726,44 @@ public class HelpController
     		popup.setPage(pnlContextHelp.getPage());
     	}
     }
+    
+    /**
+	 * Append Entity Type information on a given string
+	 *
+	 * @param string
+	 * @param entityType
+	 */
+	private void appendEntityType(StringBuilder string, String entityType) {
 
-    public void renderQuickInfo(GridTab gridTab) {
-    	if (gridTab == null) {
+		if (!Env.IsShowTechnicalInfOnHelp(Env.getCtx()))
+				return;
+
+		if (string == null)
+			string = new StringBuilder();
+
+		string.append("<p class=\"help-entitytype\">[ ").append(entityType).append(" ]</p>");
+	}
+
+    /**
+     * Render quick info (AD_StatusLine)
+     * @param obj
+     */
+    public void renderQuickInfo(Object obj) {
+    	if (obj == null) {
         	pnlQuickInfo.setVisible(false);
     	} else {
-    		String widget = gridTab.getStatusLinesWidget();
+    		String widget = "";
+    		if(obj instanceof GridTab) {
+    			widget = ((GridTab)obj).getStatusLinesWidget();
+    		}
+    		else if(obj instanceof InfoPanel) {
+    			widget = ((InfoPanel)obj).getStatusLinesWidget();
+    		}
+    		else {
+    			pnlQuickInfo.setVisible(false);
+    			return;
+    		}
+    		
     		if (widget == null) {
             	pnlQuickInfo.setVisible(false);
     		} else {
@@ -680,6 +777,11 @@ public class HelpController
     	}
 	}
 
+    /**
+     * @param htmlString
+     * @param all
+     * @return text after strip of html tag
+     */
     private String stripHtml(String htmlString, boolean all) 
     {
 		htmlString = htmlString
@@ -697,6 +799,11 @@ public class HelpController
 		return htmlString;
 	}
 
+    /**
+     * @param ctxType
+     * @param recordId
+     * @return MCtxHelpMsg
+     */
     private MCtxHelpMsg getCtxHelpMsg(String ctxType, int recordId)
     {
     	MCtxHelpMsg retValue = MCtxHelpMsg.get(ctxType, recordId);
@@ -705,7 +812,7 @@ public class HelpController
 
     /**
 	 * @param content content
-	 * @return masked content or empty string if the <code>content</code> is null
+	 * @return masked content or empty string if <code>content</code> is null
 	 */
 	public static String escapeJavascriptContent(String content)
 	{
@@ -741,7 +848,7 @@ public class HelpController
 	
 	private class ContextHelpMenupopup extends Menupopup implements EventListener<Event> {
 		/**
-		 * 
+		 * generated serial id
 		 */
 		private static final long serialVersionUID = 5430991475805225567L;
 

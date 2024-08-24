@@ -34,6 +34,7 @@ import org.compiere.model.MSysConfig;
 import org.compiere.model.Query;
 import org.compiere.model.ServerStateChangeEvent;
 import org.compiere.model.ServerStateChangeListener;
+import org.compiere.model.SystemIDs;
 import org.compiere.model.X_AD_Package_Imp;
 import org.compiere.model.X_AD_Package_Imp_Proc;
 import org.compiere.util.AdempiereSystemError;
@@ -150,12 +151,14 @@ public class PackInApplicationActivator extends AbstractActivator{
 	private boolean packIn(File packinFile) {
 		if (packinFile != null) {
 			String fileName = packinFile.getName();
-			logger.warning("Installing " + fileName + " ...");
-
 			// The convention for package names is: yyyymmddHHMM_ClientValue_InformationalDescription.zip
 			String [] parts = fileName.split("_");
+			if (parts.length < 2) {
+				logger.warning("Wrong name, ignored " + fileName);
+				return false;
+			}
+			logger.warning("Installing " + fileName + " ...");
 			String clientValue = parts[1];
-			
 			boolean allClients = clientValue.startsWith("ALL-CLIENTS");
 			
 			int[] clientIDs;
@@ -200,6 +203,8 @@ public class PackInApplicationActivator extends AbstractActivator{
 					statusUpdate(message);
 				}
 				Env.setContext(Env.getCtx(), Env.AD_CLIENT_ID, client.getAD_Client_ID());
+				Env.setContext(Env.getCtx(), Env.AD_ROLE_ID, SystemIDs.ROLE_SYSTEM);
+				Env.setContext(Env.getCtx(), Env.AD_USER_ID, SystemIDs.USER_SYSTEM);
 				try {
 				    // call 2pack
 					if (service != null) {
@@ -216,6 +221,8 @@ public class PackInApplicationActivator extends AbstractActivator{
 					return false;
 				} finally {
 					Env.setContext(Env.getCtx(), Env.AD_CLIENT_ID, 0);
+					Env.setContext(Env.getCtx(), Env.AD_ROLE_ID, (String)null);
+					Env.setContext(Env.getCtx(), Env.AD_USER_ID, (String)null);
 				}
 				logger.warning(packinFile.getPath() + " installed");
 			}
@@ -353,7 +360,7 @@ public class PackInApplicationActivator extends AbstractActivator{
 	@Override
 	protected void frameworkStarted() {
 		if (service != null) {
-			if (Adempiere.getThreadPoolExecutor() != null) {
+			if (Adempiere.isStarted()) {
 				Adempiere.getThreadPoolExecutor().execute(new Runnable() {			
 					@Override
 					public void run() {

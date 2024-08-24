@@ -17,6 +17,7 @@ import org.adempiere.base.IServiceHolder;
 import org.adempiere.webui.action.Actions;
 import org.adempiere.webui.action.IAction;
 import org.adempiere.webui.component.ToolBarButton;
+import org.compiere.model.MColumn;
 import org.compiere.model.MToolBarButton;
 import org.compiere.util.Env;
 import org.compiere.util.Evaluatee;
@@ -27,18 +28,38 @@ import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.event.Events;
 import org.zkoss.zul.Toolbarbutton;
 
+/**
+ * Model for AD_ToolBarButton with IsCustomization=Y
+ * @author hengsin
+ */
 public class ToolbarCustomButton implements EventListener<Event>, Evaluatee { 
 
+	/** Toolbarbutton instance **/
 	private Toolbarbutton toolbarButton;
+	/** AD_ToolBarButton.ActionClassName **/
 	private String actionId;
 	private int windowNo;
 	private int tabNo = -1;
+	/** model instance for AD_ToolBarButton **/
 	private MToolBarButton mToolbarButton;
 
+	/**
+	 * @param mToolbarButton
+	 * @param btn
+	 * @param actionId
+	 * @param windowNo
+	 */
 	public ToolbarCustomButton(MToolBarButton mToolbarButton, Toolbarbutton btn, String actionId, int windowNo) {
 		this(mToolbarButton, btn, actionId, windowNo, -1);
 	}
 	
+	/**
+	 * @param mToolbarButton
+	 * @param btn
+	 * @param actionId
+	 * @param windowNo
+	 * @param tabNo
+	 */
 	public ToolbarCustomButton(MToolBarButton mToolbarButton, Toolbarbutton btn, String actionId, int windowNo, int tabNo) {
 		toolbarButton = btn;
 		this.actionId = actionId;
@@ -49,6 +70,9 @@ public class ToolbarCustomButton implements EventListener<Event>, Evaluatee {
 		toolbarButton.addEventListener(Events.ON_CLICK, this);
 	}
 	
+	/**
+	 * Call {@link IAction#execute(Object)}.
+	 */
 	@Override
 	public void onEvent(Event event) throws Exception {
 		IServiceHolder<IAction> serviceHolder = Actions.getAction(actionId);
@@ -77,10 +101,17 @@ public class ToolbarCustomButton implements EventListener<Event>, Evaluatee {
 	    	return Env.getContext (Env.getCtx(), windowNo, tabNo, variableName, false, true);
 	}
 	
+	/**
+	 * Delegate to {@link #dynamicDisplay(boolean)}
+	 */
 	public void dynamicDisplay() {
 		dynamicDisplay(false);
 	}
 	
+	/**
+	 * Dynamic update of button state.
+	 * @param forceValidation if true, execute dynamic update event if button is in detached state
+	 */
 	public void dynamicDisplay(boolean forceValidation) {
 		if (toolbarButton.getParent() == null && !forceValidation)
 			return;
@@ -90,7 +121,7 @@ public class ToolbarCustomButton implements EventListener<Event>, Evaluatee {
 			return;
 
 		boolean visible = true;
-		if (displayLogic.startsWith("@SQL=")) {
+		if (displayLogic.startsWith(MColumn.VIRTUAL_UI_COLUMN_PREFIX)) {
 			ADWindow adwindow = ADWindow.get(windowNo);
 			if (adwindow == null)
 				return;
@@ -107,6 +138,9 @@ public class ToolbarCustomButton implements EventListener<Event>, Evaluatee {
 		toolbarButton.setVisible(visible);
 	}
 
+	/**
+	 * Evaluate pressedLogic (if defined)
+	 */
 	public void pressedLogic() {
 		if (toolbarButton.getParent() == null)
 			return;
@@ -130,6 +164,9 @@ public class ToolbarCustomButton implements EventListener<Event>, Evaluatee {
 		((ToolBarButton) toolbarButton).setPressed(isPressed);
 	}
 
+	/**
+	 * Evaluate readOnlyLogic (if defined)
+	 */
 	public void readOnlyLogic() {
 		if (toolbarButton.getParent() == null)
 			return;
@@ -154,10 +191,17 @@ public class ToolbarCustomButton implements EventListener<Event>, Evaluatee {
 		toolbarButton.setDisabled(isReadOnly);
 	}
 
+	/**
+	 * Evaluate SQL or boolean logic expression.<br/>
+	 * For SQL expression, return true if the SQL expression has result (it doesn't check the return value of the SQL statement).
+	 * @param logic
+	 * @param tabNo
+	 * @return result of evaluation of logic
+	 */
 	private boolean validateLogic(String logic, int tabNo) {
 		boolean isValid = false;
 
-		if (logic.startsWith("@SQL="))
+		if (logic.startsWith(MColumn.VIRTUAL_UI_COLUMN_PREFIX))
 		{
 			isValid = Evaluator.parseSQLLogic(logic, Env.getCtx(), windowNo, tabNo, "");
 		}
@@ -169,6 +213,9 @@ public class ToolbarCustomButton implements EventListener<Event>, Evaluatee {
 		return isValid;
 	}
 
+	/**
+	 * @return {@link Toolbarbutton}
+	 */
 	public Toolbarbutton getToolbarbutton() {
 		return toolbarButton;
 	}

@@ -23,7 +23,7 @@ import org.compiere.util.KeyNamePair;
 
 /** Generated Interface for PP_Product_BOMLine
  *  @author iDempiere (generated) 
- *  @version Release 10
+ *  @version Release 11
  */
 @SuppressWarnings("all")
 public interface I_PP_Product_BOMLine 
@@ -380,12 +380,12 @@ public interface I_PP_Product_BOMLine
     public static final String COLUMNNAME_QtyBOM = "QtyBOM";
 
 	/** Set Quantity.
-	  * Indicate the Quantity  use in this BOM
+	  * Indicate the Quantity use in this BOM
 	  */
 	public void setQtyBOM (BigDecimal QtyBOM);
 
 	/** Get Quantity.
-	  * Indicate the Quantity  use in this BOM
+	  * Indicate the Quantity use in this BOM
 	  */
 	public BigDecimal getQtyBOM();
 

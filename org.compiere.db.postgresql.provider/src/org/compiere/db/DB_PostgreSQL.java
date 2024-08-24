@@ -34,6 +34,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
@@ -45,12 +46,15 @@ import javax.sql.DataSource;
 import javax.sql.RowSet;
 
 import org.adempiere.db.postgresql.PostgreSQLBundleActivator;
+import org.adempiere.db.postgresql.partition.TablePartitionService;
 import org.adempiere.exceptions.DBException;
+import org.compiere.db.partition.ITablePartitionService;
 import org.compiere.dbPort.Convert;
 import org.compiere.dbPort.Convert_PostgreSQL;
 import org.compiere.model.MColumn;
 import org.compiere.model.MTable;
 import org.compiere.model.PO;
+import org.compiere.model.SystemProperties;
 import org.compiere.util.CCache;
 import org.compiere.util.CLogger;
 import org.compiere.util.DB;
@@ -83,10 +87,14 @@ public class DB_PostgreSQL implements AdempiereDatabase
 	private static final String POOL_PROPERTIES = "hikaricp.properties";
 
 	private static Boolean sysNative = null;
-	
+
+    final static char DOUBLE_QUOTE = '"';
+    final static char ANGLED_QUOTE_LEFT = '\u00ab';   // «
+    final static char ANGLED_QUOTE_RIGHT = '\u00bb';  // »
+
 	static
 	{
-		String property = System.getProperty(P_POSTGRE_SQL_NATIVE);
+		String property = SystemProperties.getPostgreSQLNative();
 		if (!Util.isEmpty(property, true) ) 
 		{
 			sysNative = "Y".equalsIgnoreCase(property);
@@ -129,7 +137,7 @@ public class DB_PostgreSQL implements AdempiereDatabase
 	/**	Logger			*/
 	private static final CLogger			log	= CLogger.getCLogger (DB_PostgreSQL.class);
 
-    private static final String NATIVE_MARKER = "NATIVE_"+Database.DB_POSTGRESQL+"_KEYWORK";
+    public static final String NATIVE_MARKER = "NATIVE_"+Database.DB_POSTGRESQL+"_KEYWORK";
 
     private CCache<String, String> convertCache = new CCache<String, String>(null, "DB_PostgreSQL_Convert_Cache", 1000, CCache.DEFAULT_EXPIRE_MINUTE, false);
 
@@ -205,7 +213,7 @@ public class DB_PostgreSQL implements AdempiereDatabase
 			.append("/").append(connection.getDbName())
 			.append("?encoding=UNICODE&ApplicationName=iDempiere");
 
-		String urlParameters = System.getProperty("org.idempiere.postgresql.URLParameters");
+		String urlParameters = SystemProperties.getPostgresqlURLParameters();
 	    if (!Util.isEmpty(urlParameters)) {
    			sb.append("&").append(urlParameters);  
 	    }
@@ -229,7 +237,7 @@ public class DB_PostgreSQL implements AdempiereDatabase
 			.append(":").append(dbPort)
 			.append("/").append(dbName);
 
-		String urlParameters = System.getProperty("org.idempiere.postgresql.URLParameters") ;
+		String urlParameters = SystemProperties.getPostgresqlURLParameters();
 	    if (!Util.isEmpty(urlParameters)) {
 			sb.append("?").append(urlParameters);  
 		}
@@ -351,8 +359,8 @@ public class DB_PostgreSQL implements AdempiereDatabase
 			String cache = convertCache.get(oraStatement);
 			if (cache != null) {
 				Convert.logMigrationScript(oraStatement, cache);
-				if ("true".equals(System.getProperty("org.idempiere.db.debug"))) {
-					String filterPgDebug = System.getProperty("org.idempiere.db.debug.filter");
+				if (SystemProperties.isDBDebug()) {
+					String filterPgDebug = SystemProperties.getDBDebugFilter();
 					boolean print = true;
 					if (filterPgDebug != null)
 						print = cache.matches(filterPgDebug);
@@ -407,7 +415,7 @@ public class DB_PostgreSQL implements AdempiereDatabase
 	 */
 	public String getSystemUser()
 	{
-    	String systemUser = System.getProperty("ADEMPIERE_DB_SYSTEM_USER");
+    	String systemUser = SystemProperties.getAdempiereDBSystemUser();
     	if (systemUser == null)
     		systemUser = "postgres";
         return systemUser;
@@ -532,8 +540,31 @@ public class DB_PostgreSQL implements AdempiereDatabase
 		}
 		return result.toString();
 	}	//	TO_NUMBER
+	
+	/**
+	 *	@return string with right casting for JSON inserts
+	 */
+	public String getJSONCast () {
+		return "CAST (? AS jsonb)";
+	}
+	
+	/**
+	 * 	Return string as JSON object for INSERT statements
+	 *	@param value
+	 *	@return value as json
+	 */
+	public String TO_JSON (String value)
+	{
+		if (value == null)
+			return "NULL";
 
-
+		StringBuilder retValue = null;
+		retValue = new StringBuilder("CAST (");
+		retValue.append(value);
+		retValue.append(" AS jsonb)");
+		return retValue.toString();
+	}
+	
 	/**
 	 * 	Get SQL Commands
 	 *	@param cmdType CMD_*
@@ -871,7 +902,24 @@ public class DB_PostgreSQL implements AdempiereDatabase
 	}
 
 	public int getNextID(String name, String trxName) {
-		int m_sequence_id = DB.getSQLValueEx(trxName, "SELECT nextval('"+name.toLowerCase()+"')");
+		Trx trx = null;
+		int m_sequence_id = -1;
+		try {
+			// avoid cannot execute nextval() in a read-only transaction
+			if (trxName == null) {
+				trxName = Trx.createTrxName("getNextval");
+				trx = Trx.get(trxName, true);
+			}
+			m_sequence_id = DB.getSQLValueEx(trxName, "SELECT nextval('"+name.toLowerCase()+"')");
+		} catch (Exception e) {
+			if (trx != null) {
+				trx.rollback();
+			}
+		} finally {
+			if (trx != null) {
+				trx.close();
+			}
+		}
 		return m_sequence_id;
 	}
 
@@ -960,7 +1008,7 @@ public class DB_PostgreSQL implements AdempiereDatabase
 					sqlBuffer.append(" AND ");
 				sqlBuffer.append(keyColumns[i]).append("=?");
 			}
-			sqlBuffer.append(" FOR UPDATE ");
+			sqlBuffer.append(" FOR NO KEY UPDATE ");
 
 			Object[] parameters = new Object[keyColumns.length];
 			for(int i = 0; i < keyColumns.length; i++) {
@@ -992,7 +1040,7 @@ public class DB_PostgreSQL implements AdempiereDatabase
 				}
 			} catch (Exception e) {
 				if (log.isLoggable(Level.INFO))log.log(Level.INFO, e.getLocalizedMessage(), e);
-				throw new DBException("Could not lock record for " + po.toString() + " caused by " + e.getLocalizedMessage());
+				throw new DBException("Could not lock record for " + po.toString() + " caused by " + e.getLocalizedMessage(), e);
 			} finally {
 				DB.close(rs, stmt);
 				rs = null;stmt = null;
@@ -1001,20 +1049,74 @@ public class DB_PostgreSQL implements AdempiereDatabase
 		return false;
 	}
 	
+	/**
+	 * Get the name of the unique constraint name based on a postgresql message
+	 * This method works for English, Spanish and German
+	 * The foreign key constraint name is expected to be found in the second quoted string
+	 *   English quotes -> "constraint"
+	 *   Spanish quotes -> «constraint»
+	 *   German  quotes -> »constraint«
+	 */
 	@Override
 	public String getNameOfUniqueConstraintError(Exception e) {
 		String info = e.getMessage();
-		int fromIndex = info.indexOf("\"");
-		if (fromIndex == -1)
-			fromIndex = info.indexOf("\u00ab"); // quote for spanish postgresql message
-		if (fromIndex == -1)
-			return info;
-		int toIndex = info.indexOf("\"", fromIndex + 1);
-		if (toIndex == -1)
-			toIndex = info.indexOf("\u00bb", fromIndex + 1);
-		if (toIndex == -1)
-			return info;
-		return info.substring(fromIndex + 1, toIndex);
+		int start = -1;
+		int end = -1;
+		boolean open = false;
+		for (int idx = 0; idx < info.length(); idx++) {
+			if (   info.charAt(idx) == DOUBLE_QUOTE
+				|| info.charAt(idx) == ANGLED_QUOTE_LEFT
+				|| info.charAt(idx) == ANGLED_QUOTE_RIGHT) {
+				open = !open;
+				if (open) {
+					start = idx;
+				} else {
+					end = idx;
+					break;
+				}
+			}
+		}
+		if (end != -1)
+			return info.substring(start+1, end);
+		return null;
+	}
+
+	/**
+	 * Get the foreign key constraint name based on a postgresql message
+	 * This method works for English, Spanish and German
+	 * The foreign key constraint name is expected to be found in the second quoted string
+	 *   English quotes -> "constraint"
+	 *   Spanish quotes -> «constraint»
+	 *   German  quotes -> »constraint«
+	 */
+	@Override
+	public String getForeignKeyConstraint(Exception e) {
+		String info = e.getMessage();
+		int start = -1;
+		int end = -1;
+		int cntword = 0;
+		boolean open = false;
+		for (int idx = 0; idx < info.length(); idx++) {
+			if (   info.charAt(idx) == DOUBLE_QUOTE
+				|| info.charAt(idx) == ANGLED_QUOTE_LEFT
+				|| info.charAt(idx) == ANGLED_QUOTE_RIGHT) {
+				open = !open;
+				if (open) {
+					cntword++;
+				}
+				if (cntword == 2) {
+					if (open) {
+						start = idx;
+					} else {
+						end = idx;
+						break;
+					}
+				}
+			}
+		}
+		if (end != -1)
+			return info.substring(start+1, end);
+		return null;
 	}
 
 	@Override
@@ -1132,6 +1234,11 @@ public class DB_PostgreSQL implements AdempiereDatabase
 	@Override
 	public String getClobDataType() {
 		return "TEXT";
+	}
+	
+	@Override
+	public String getJsonDataType() {
+		return "JSONB";
 	}
 
 	@Override
@@ -1295,5 +1402,13 @@ public class DB_PostgreSQL implements AdempiereDatabase
 		return "57014".equals(ex.getSQLState());
 	}
 
-	
+	@Override
+	public ITablePartitionService getTablePartitionService() {
+		return new TablePartitionService();
+	}
+
+	@Override
+	public String TO_Blob(byte[] blob) {
+		return "decode('"+HexFormat.of().formatHex(blob)+"','hex')";
+	}
 }   //  DB_PostgreSQL

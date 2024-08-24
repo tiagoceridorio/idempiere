@@ -73,6 +73,7 @@ import org.zkoss.zul.A;
 import org.zkoss.zul.Div;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Hlayout;
+import org.zkoss.zul.LayoutRegion;
 import org.zkoss.zul.Popup;
 import org.zkoss.zul.Separator;
 import org.zkoss.zul.Space;
@@ -81,15 +82,16 @@ import org.zkoss.zul.Tabs;
 import org.zkoss.zul.Toolbar;
 
 /**
+ * Detail panel that display the child tabs of a parent {@link ADTabpanel} tab.<br/>
+ * Implemented as a panel with {@link Tabbox}.
+ * 
  * @author hengsin
- *
  */
 public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
-
 	/**
 	 * generated serial id
 	 */
-	private static final long serialVersionUID = 6251897492168864784L;
+	private static final long serialVersionUID = 3764215603459946930L;
 
 	public static final String BTN_PROCESS_ID = "BtnProcess";
 
@@ -107,12 +109,16 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	
 	private static final String BTN_TOGGLE_ID = "BtnToggle";
 	
+	/** Boolean execution attribute to indicate tabbox is handling ON_SELECT event **/
 	private static final String TABBOX_ONSELECT_ATTRIBUTE = "detailpane.tabbox.onselect";
 
+	/** event after handling of ON_SElECT event of a detail tab */
 	private static final String ON_POST_SELECT_TAB_EVENT = "onPostSelectTab";
 
+	/** Attribute use by {@link #messageContainers} to hold status text **/
 	private static final String STATUS_TEXT_ATTRIBUTE = "status.text";
 
+	/** Attribute use by {@link #messageContainers} to hold error text **/
 	private static final String STATUS_ERROR_ATTRIBUTE = "status.error";
 
 	private static final String CUSTOMIZE_IMAGE = "images/Customize16.png";
@@ -124,34 +130,49 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	private static final String QUICK_FORM_IMAGE = "images/QuickForm16.png";
 	private static final String TOGGLE_IMAGE = "images/Multi16.png";
 
-
-	private long prevKeyEventTime = 0;
-	private KeyEvent prevKeyEvent;
-
+	/** tabbox for AD_Tabs **/
 	private Tabbox tabbox;
 
+	/** Registered event listener for DetailPane events **/
 	private EventListener<Event> eventListener;
 
+	/** AD_Tab_ID:Hbox. Message (status, error) container for each tab. **/
 	private Map<Integer, Hbox> messageContainers = new HashMap<Integer, Hbox>();
 
+	/** content for message popup **/
 	private Div msgPopupCnt;
 
+	/** message popup window **/
 	private Window msgPopup;
 	
+	/** last selected tab index **/
 	private int prevSelectedIndex = 0;
 
+	/**
+	 * On activate event for detail tab.<br/>
+	 * Use to activate detail tab or notify detail tab after header tab change.
+	 */
 	public static final String ON_ACTIVATE_DETAIL_EVENT = "onActivateDetail";
 	
+	/** on delete event for selected tab **/
 	public static final String ON_DELETE_EVENT = "onDelete";
 
+	/** on new event for selected tab **/
 	public static final String ON_NEW_EVENT = "onNew";
 
+	/** event to edit current row of selected tab **/
 	public static final String ON_EDIT_EVENT = "onEdit";
 	
+	/** on save event for selected tab **/
 	public static final String ON_SAVE_EVENT = "onSave";
 	
+	/** on quick form event for selected tab **/
 	public static final String ON_QUICK_FORM_EVENT = "onQuickForm";
 	
+	/**
+	 * Record navigation event for selected tab.<br/>
+	 * Event data is the navigation action (previous, next, first and last).
+	 */
 	public static final String ON_RECORD_NAVIGATE_EVENT = "onRecordNavigate";
 	
 	/**
@@ -183,6 +204,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
+	 * Get selected tab index
 	 * @return selected tab index
 	 */
 	public int getSelectedIndex() {
@@ -190,7 +212,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
-	 * set selected tab index 
+	 * Set selected tab index 
 	 * @param curTabIndex
 	 */
 	public void setSelectedIndex(int curTabIndex) {
@@ -199,6 +221,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
+	 * Get number of tabs
 	 * @return number of tabs
 	 */
 	public int getTabcount() {
@@ -210,21 +233,21 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
-	 * undo last tab selection
+	 * Undo last tab selection
 	 */
 	public void undoLastTabSelection() {
 		tabbox.setSelectedIndex(prevSelectedIndex);
 	}
 
 	/**
-	 * redraw tabbox
+	 * Redraw tabbox
 	 */
 	public void refresh() {
 		tabbox.invalidate();
 	}
 	
 	/**
-	 * replace of add
+	 * Replace or add IADTabpanel to tabbox.
 	 * @param index
 	 * @param tabPanel
 	 * @param tabLabel
@@ -238,7 +261,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
-	 * replace or add
+	 * Replace or add IADTabpanel to tabbox.
 	 * @param index
 	 * @param tabPanel
 	 * @param tabLabel
@@ -253,7 +276,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
-	 * 
+	 * Add IADTabpanel to tabbox
 	 * @param tabPanel
 	 * @param tabLabel
 	 */
@@ -262,7 +285,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
-	 * 
+	 * Add IADTabpanel to tabbox
 	 * @param tabPanel
 	 * @param tabLabel
 	 * @param enabled
@@ -284,6 +307,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		tab.addEventListener(Events.ON_CLICK, new EventListener<Event>() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				//click on tab title trigger edit of current row
 				Tab tab = (Tab) event.getTarget();
 				if (!tab.isSelected()) 
 					return;
@@ -313,8 +337,9 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		}
 		Tabpanel tp = new Tabpanel();
 		tabpanels.appendChild(tp);
-		ToolBar toolbar = tp.getToolbar();
 		
+		//setup toolbar
+		ToolBar toolbar = tp.getToolbar();		
 		HashMap<String, ToolBarButton> buttons = new HashMap<String, ToolBarButton>();
 		ToolBarButton button = new ToolBarButton();
 		if (ThemeManager.isUseFontIconForImage())
@@ -444,6 +469,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		button.setTooltiptext(Util.cleanAmp(Msg.getMsg(Env.getCtx(), "Toggle")) + "    Shift+Alt+T");
 		buttons.put(BTN_TOGGLE_ID.substring(3, BTN_TOGGLE_ID.length()), button);
 
+		//Detail toolbar button configure at AD_ToolBarButton
 		MToolBarButton[] officialButtons = MToolBarButton.getToolbarButtons("D", null);
 		for (MToolBarButton toolbarButton : officialButtons) {
 			if ( !toolbarButton.isActive() ) {
@@ -505,6 +531,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 			}
 		}
 		
+		//container for status and error text
 		Hbox messageContainer = new Hbox();
 		messageContainer.setPack("end");
 		messageContainer.setAlign("center");
@@ -541,7 +568,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
-	 * toggle between grid and form view
+	 * Toggle between grid and form view
 	 * @param e
 	 */
 	protected void onToggle(Event e) {
@@ -564,7 +591,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
-	 * open customize grid dialog
+	 * Open customize grid view dialog.
 	 * @param e
 	 */
 	protected void onCustomize(Event e) {
@@ -579,7 +606,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
-	 * open process dropdown
+	 * Open process list popup
 	 * @param button
 	 */
 	protected void onProcess(Component button) {
@@ -594,7 +621,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
-	 * 
+	 * Set event listener for DetailPane events
 	 * @param listener
 	 */
 	public void setEventListener(EventListener<Event> listener) {
@@ -602,7 +629,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
-	 * remove all tabs and tabpanels
+	 * Remove all tabs and tabpanels
 	 */
 	public void reset() {
 		if (tabbox.getTabs() != null) {
@@ -615,8 +642,9 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
+	 * Get IADTabpanel at index
 	 * @param index
-	 * @return adtabpanel at index
+	 * @return IADTabpanel at index
 	 */
 	public IADTabpanel getADTabpanel(int index) {
 		if (index < 0 || index >= tabbox.getTabpanels().getChildren().size())
@@ -631,8 +659,8 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
-	 * 
-	 * @return selected adtabpanel
+	 * Get IADTabpanel for selected tab
+	 * @return selected IADTabpanel
 	 */
 	public IADTabpanel getSelectedADTabpanel() {
 		org.zkoss.zul.Tabpanel selectedPanel = tabbox.getSelectedPanel();
@@ -646,15 +674,15 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
-	 * 
-	 * @return {@link Tabpanel}
+	 * Get tab panel of selected tab
+	 * @return selected {@link Tabpanel}
 	 */
 	public Tabpanel getSelectedPanel() {
 		return (Tabpanel) tabbox.getSelectedPanel();
 	}
 	
 	/**
-	 * 
+	 * Set status and error text for selected tab.
 	 * @param status
 	 * @param error
 	 */
@@ -676,6 +704,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
     	}
     	
 		messageContainer.getChildren().clear();
+		//store in attribute for retrieval in ON_CLICK event
 		messageContainer.setAttribute(STATUS_ERROR_ATTRIBUTE, error);
     	messageContainer.setAttribute(STATUS_TEXT_ATTRIBUTE, status);
     	messageContainer.setSclass(error ? "docstatus-error" : "docstatus-normal");
@@ -685,7 +714,8 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
     	
     	String labelText = buildLabelText(status);
     	if (error) {
-    		Clients.showNotification(buildNotificationText(status), "error", findTabpanel(this), "top_left", 3500, true);
+    		Component ref = isCollapsed(this) ? findTabpanel(this) : findTabpanel(messageContainer);
+    		Clients.showNotification(buildNotificationText(status), "error", ref, "top_left", 3500, true);
     	}
     	Label label = new Label(labelText);
     	messageContainer.appendChild(label);
@@ -712,6 +742,26 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
     	}
 	}
 
+	/**
+	 * Is parent of detailPane in collapsed state
+	 * @param detailPane
+	 * @return true if parent of detailPane is in collapsed state
+	 */
+	private boolean isCollapsed(DetailPane detailPane) {
+		Component parent = detailPane.getParent();
+		while (parent != null) {
+			if (parent instanceof LayoutRegion lr)
+				return !lr.isOpen();
+			parent = parent.getParent();
+		}
+		return false;
+	}
+
+	/**
+	 * Shorten status text to a more presentable length.
+	 * @param statusText
+	 * @return shorten status text
+	 */
 	private String buildLabelText(String statusText) {
 		if (statusText == null)
 			return "";
@@ -724,6 +774,11 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		return statusText.substring(0, 80);
 	}
 
+	/**
+	 * Shorten notification text to a more presentable length.
+	 * @param statusText
+	 * @return shorten notification text
+	 */
 	private String buildNotificationText(String statusText) {
 		if (statusText == null)
 			return "";
@@ -758,39 +813,36 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 			LayoutUtils.redraw(this);
         } else if (event.getName().equals(Events.ON_CTRL_KEY)) {
         	KeyEvent keyEvent = (KeyEvent) event;
-        	if (LayoutUtils.isReallyVisible(this)) {
-	        	//filter same key event that is too close
-	        	//firefox fire key event twice when grid is visible
-	        	long time = System.currentTimeMillis();
-	        	if (prevKeyEvent != null && prevKeyEventTime > 0 &&
-	        			prevKeyEvent.getKeyCode() == keyEvent.getKeyCode() &&
-	    				prevKeyEvent.getTarget() == keyEvent.getTarget() &&
-	    				prevKeyEvent.isAltKey() == keyEvent.isAltKey() &&
-	    				prevKeyEvent.isCtrlKey() == keyEvent.isCtrlKey() &&
-	    				prevKeyEvent.isShiftKey() == keyEvent.isShiftKey()) {
-	        		if ((time - prevKeyEventTime) <= 300) {
-	        			return;
-	        		}
-	        	}
+		if (LayoutUtils.isReallyVisible(this))
 	        	this.onCtrlKeyEvent(keyEvent);
-        	}
 		}
 	}
 	
+	/**
+	 * Create popup content for message popup window
+	 * @param status
+	 */
 	protected void createPopupContent(String status) {
 		Text t = new Text(status);
 		msgPopupCnt.getChildren().clear();
 		msgPopupCnt.appendChild(t);
 	}
 	
-	private void showPopup(boolean error, String msg) {		
-		Clients.showNotification(buildNotificationText(msg), "error", findTabpanel(this), "at_pointer", 3500, true);
+	/**
+	 * Show notification popup using Clients.showNotification
+	 * @param error
+	 * @param msg
+	 */
+	private void showPopup(boolean error, String msg) {
+		Clients.showNotification(buildNotificationText(msg), "error", null, "at_pointer", 3500, true);
 	}
 	
+	/**
+	 * Create message popup window
+	 */
 	private void createPopup() {
 		msgPopupCnt = new Div();
 		ZKUpdateUtil.setVflex(msgPopupCnt, "1");
-
 		
 		msgPopup = new Window();
 		msgPopup.setVisible(false);
@@ -834,7 +886,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
-	 * update toolbar button state 
+	 * Update toolbar button state 
 	 * @param changed
 	 * @param readOnly
 	 */
@@ -903,10 +955,13 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
         	}
         }
 
-		// update from customized implementation
+		//Not use by ADTabpanel, for custom IADTabpanel implementation.
 		adtab.updateDetailToolbar(toolbar);
 	}
 	
+	/**
+	 * Update state of Process toolbar button.
+	 */
 	private void updateProcessToolbar() {
 		int index = getSelectedIndex();
 		if (index < 0 || index >= getTabcount()) return;
@@ -934,8 +989,9 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
-	 * Edit current record
-	 * @param formView
+	 * Edit current record of selected tab.<br/>
+	 * This event will make the selected tab becomes the new header tab, i.e become the selected tab of {@link CompositeADTabbox}.
+	 * @param formView true to force form view.
 	 * @throws Exception
 	 */
 	public void onEdit(boolean formView) throws Exception {
@@ -944,7 +1000,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
-	 * fire the on activate detail event
+	 * Fire ON_ACTIVATE_DETAIL_EVENT for selected tab.
 	 */
 	public void fireActivateDetailEvent() {
 		int index = tabbox.getSelectedIndex();
@@ -954,6 +1010,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
+	 * Set visibility of tab at tabIndex
 	 * @param tabIndex
 	 * @param visible
 	 */
@@ -972,7 +1029,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
-	 * 
+	 * Is tab at tabIndex visible
 	 * @param tabIndex
 	 * @return true if tab at tabIndex is visible
 	 */
@@ -984,6 +1041,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
+	 * Is tab at tabIndex enable
 	 * @param tabIndex
 	 * @return true if tab at tabIndex is enable
 	 */
@@ -996,7 +1054,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
-	 * 
+	 * Enable/disable tab at tabIndex
 	 * @param tabIndex
 	 * @param enabled
 	 */
@@ -1009,7 +1067,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
-	 * disable toolbar
+	 * Disable all toolbar buttons
 	 */
 	public void disableToolbar() {
 		int index = getSelectedIndex();
@@ -1025,10 +1083,15 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		}
 	}
 	
+	/**
+	 * Find first {@link Tabpanel} that own comp.
+	 * @param comp
+	 * @return {@link Component}
+	 */
 	private Component findTabpanel(Component comp) {
 		Component parent = comp.getParent();
 		while (parent != null) {
-			if (parent instanceof Tabpanel)
+			if (parent instanceof org.adempiere.webui.component.Tabpanel)
 				return parent;
 			
 			parent = parent.getParent();
@@ -1037,7 +1100,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
-	 * add new record
+	 * Add new row
 	 * @throws Exception
 	 */
 	public void onNew() throws Exception {
@@ -1052,6 +1115,11 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
     private static final int VK_D = 0x44;
     private static final int VK_O = 0x4F;
     private static final int VK_Q = 0x51;
+    
+    /**
+     * Handle shortcut key event
+     * @param keyEvent
+     */
 	private void onCtrlKeyEvent(KeyEvent keyEvent) {
 		ToolBarButton btn = null;
 		if (keyEvent.isAltKey() && !keyEvent.isCtrlKey() && keyEvent.isShiftKey()) { // Shift+Alt key
@@ -1082,8 +1150,6 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 			}
 		} 
 		if (btn != null) {
-			prevKeyEventTime = System.currentTimeMillis();
-        	prevKeyEvent = keyEvent;
 			keyEvent.stopPropagation();
 			if (!btn.isDisabled() && btn.isVisible()) {
 				Events.sendEvent(btn, new Event(Events.ON_CLICK, btn));
@@ -1096,17 +1162,14 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 
 	/**
-	 * tabpanel for adtabpanel
-	 * @author hengsin
-	 *
+	 * Custom {@link org.adempiere.webui.component.Tabpanel} implementation for DetailPane.
 	 */
 	public static class Tabpanel extends org.adempiere.webui.component.Tabpanel {
-
 		/**
-		 * 
+		 * generated serial id 
 		 */
-		private static final long serialVersionUID = 8248794614430375822L;
-		
+		private static final long serialVersionUID = -2502140440194514450L;
+
 		private ToolBar toolbar;
 
 		private RecordToolbar recordToolBar;
@@ -1130,7 +1193,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		}
 
 		/**
-		 * update toolbar state after toggle between grid and form view
+		 * Update toolbar state after toggle between grid and form view
 		 */
 		public void afterToggle() {
 			if (getPagingControl() != null)
@@ -1148,7 +1211,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		}
 
 		/**
-		 * set form view state
+		 * Set form view state of selected tab
 		 * @param b
 		 */
 		public void setToggleToFormView(boolean b) {
@@ -1156,7 +1219,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		}
 
 		/**
-		 * 
+		 * Is selected tab in form view
 		 * @return true if tab have been toggle to form view
 		 */
 		public boolean isToggleToFormView() {
@@ -1209,7 +1272,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		}
 		
 		/**
-		 * set paging control container
+		 * Set paging control
 		 * @param pagingControl
 		 */
 		public void setPagingControl(Div pagingControl) {
@@ -1225,7 +1288,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		
 		/**
 		 * 
-		 * @return paging control container
+		 * @return paging control
 		 */
 		public Div getPagingControl() {
 			return pagingControl;
@@ -1243,7 +1306,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 
 		/**
 		 * 
-		 * @return buttons from the detail toolbar
+		 * @return toolbar buttons from the detail toolbar
 		 */
 		private List<ToolBarButton> getToolbarButtons() {
 
@@ -1257,6 +1320,9 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 			return list;
 		}
 
+		/**
+		 * Create overflow button (show more) for mobile client.
+		 */
 		private void createOverflowButton() {
 			overflowButton = new A();
 			overflowButton.setTooltiptext(Msg.getMsg(Env.getCtx(), "ShowMore"));
@@ -1276,6 +1342,9 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 			});
 		}
 
+		/**
+		 * Create new overflow popup
+		 */
 		private void newOverflowPopup() {
 			overflowPopup = new Popup();
 			overflowPopup.setHflex("min");
@@ -1284,16 +1353,16 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	}
 	
 	/**
-	 * record navigation toolbar
+	 * Record navigation toolbar
 	 * @author hengsin
 	 *
 	 */
 	private static class RecordToolbar extends Hlayout {
-		
 		/**
-		 * 
+		 * generated serial id
 		 */
-		private static final long serialVersionUID = 5024630043211194429L;
+		private static final long serialVersionUID = -3369063577339438823L;
+
 		private ToolBarButton btnFirst;
 		private ToolBarButton btnPrevious;
 		private ToolBarButton btnRecordInfo;
@@ -1301,6 +1370,9 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 		private ToolBarButton btnLast;
 		private GridTab gridTab;
 
+		/**
+		 * @param gridTab
+		 */
 		private RecordToolbar(GridTab gridTab) {
 			this.gridTab = gridTab;
 			btnFirst = createButton("First", "First", "First");
@@ -1324,6 +1396,7 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	        	if (gridTab.isNew() || gridTab.getRowCount() == 0)
 	        		return;
 	        	DataStatusEvent dse = new DataStatusEvent(gridTab, gridTab.getRowCount(), gridTab.needSave(true, true), true, false);
+	        	dse.AD_Table_ID = gridTab.getAD_Table_ID();
 	        	gridTab.updateDataStatusEventProperties(dse);
 	        	dse.setCurrentRow(gridTab.getCurrentRow());
 	        	String title = Msg.getMsg(Env.getCtx(), "Who") + btnRecordInfo.getLabel();
@@ -1350,6 +1423,13 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	        this.setValign("middle");
 		}
 		
+		/**
+		 * Create toolbar button
+		 * @param name
+		 * @param image
+		 * @param tooltip
+		 * @return {@link ToolBarButton}
+		 */
 		private ToolBarButton createButton(String name, String image, String tooltip)
 	    {
 	    	ToolBarButton btn = new ToolBarButton("");
@@ -1372,6 +1452,9 @@ public class DetailPane extends Panel implements EventListener<Event>, IdSpace {
 	        return btn;
 	    }
 		
+		/**
+		 * Dynamic update state of toolbar buttons
+		 */
 		private void dynamicDisplay() {
 			int rowCount = gridTab.getRowCount();
 			int currentRow = gridTab.getCurrentRow()+1;

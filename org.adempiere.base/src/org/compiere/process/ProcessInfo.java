@@ -22,16 +22,19 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.adempiere.util.IProcessUI;
 import org.compiere.model.MPInstance;
+import org.compiere.model.MPInstanceLog;
 import org.compiere.model.MPInstancePara;
 import org.compiere.model.MProcess;
 import org.compiere.model.MSession;
 import org.compiere.model.MSysConfig;
 import org.compiere.model.PO;
 import org.compiere.model.Query;
+import org.compiere.model.X_AD_PInstance_Log;
 import org.compiere.util.CLogger;
 import org.compiere.util.DisplayType;
 import org.compiere.util.Env;
@@ -50,10 +53,10 @@ import org.compiere.util.Util;
 public class ProcessInfo implements Serializable
 {
 	/**
-	 * 
+	 * generated serial id
 	 */
-	private static final long serialVersionUID = -4648764346588157872L;
-	
+	private static final long serialVersionUID = 8134286335553869253L;
+
 	private static final CLogger logger = CLogger.getCLogger(ProcessInfo.class);
 
 	/**
@@ -63,12 +66,26 @@ public class ProcessInfo implements Serializable
 	 *  @param Table_ID AD_Table_ID
 	 *  @param Record_ID Record_ID
 	 */
-	public ProcessInfo (String Title, int AD_Process_ID, int Table_ID, int Record_ID)
+	public ProcessInfo(String Title, int AD_Process_ID, int Table_ID, int Record_ID)
+	{
+		this (Title, AD_Process_ID, Table_ID, Record_ID, null);
+	}
+
+	/**
+	 *  Constructor
+	 *  @param Title Title
+	 *  @param AD_Process_ID AD_Process_ID
+	 *  @param Table_ID AD_Table_ID
+	 *  @param Record_ID Record ID
+	 *  @param Record_UU Record UUID
+	 */
+	public ProcessInfo(String Title, int AD_Process_ID, int Table_ID, int Record_ID, String Record_UU)
 	{
 		setTitle (Title);
 		setAD_Process_ID(AD_Process_ID);
 		setTable_ID (Table_ID);
 		setRecord_ID (Record_ID);
+		setRecord_UU (Record_UU);
 		if (Ini.isPropertyBool(Ini.P_PRINTPREVIEW))
 			m_printPreview = true;
 		else
@@ -96,6 +113,8 @@ public class ProcessInfo implements Serializable
 	private int					m_Table_ID;
 	/** Record ID if the Process    */
 	private int					m_Record_ID;
+	/** Record UUID if the Process    */
+	private String				m_Record_UU;
 	/** User_ID        					*/
 	private Integer	 			m_AD_User_ID;
 	/** Client_ID        				*/
@@ -114,10 +133,9 @@ public class ProcessInfo implements Serializable
 	/** Execution had an error      */
 	private boolean     		m_Error = false;
 
-
-	/*	General Data Object			*/
+	/**	General Data Object			*/
 	private Serializable		m_SerializableObject = null;
-	/*	General Data Object			*/
+	/**	General Data Object			*/
 	private transient Object	m_TransientObject = null;
 	/** Estimated Runtime           */
 	private int          		m_EstSeconds = 5;
@@ -143,6 +161,9 @@ public class ProcessInfo implements Serializable
 	
 	/**	Record IDs				*/
 	private List <Integer>		m_Record_IDs = null;
+
+	/**	Record UUs				*/
+	private List <String>		m_Record_UUs = null;
 
 	/** Export					*/
 	private boolean				m_export = false;
@@ -171,33 +192,62 @@ public class ProcessInfo implements Serializable
 
 	private int m_AD_Scheduler_ID = 0;
 	
+	private Serializable internalReportObject = null;
+	
+	/** For scheduler: true to notify scheduler recipients with process execution result using AD_Scheduler.R_MailTexT_ID mail template (if define). Default is true. **/
+	private boolean isNotifyRecipients = true;
+	
+	/**
+	 * Get language id
+	 * @return AD_Language_ID
+	 */
 	public int getLanguageID() {
 		return languageID;
 	}
 
+	/**
+	 * Set language id
+	 * @param languageID AD_Language_ID
+	 */
 	public void setLanguageID(int languageID) {
 		this.languageID = languageID;
 	}
 
+	/**
+	 * Get report output type
+	 * @return report output type
+	 */
 	public String getReportType() {
 		return reportType;
 	}
 
+	/**
+	 * Set report output type
+	 * @param reportType
+	 */
 	public void setReportType(String reportType) {
 		if (!Util.isEmpty(reportType))
 			this.reportType = reportType;
 	}
 	
+	/**
+	 * Set is summary (for report)
+	 * @param isSummary
+	 */
 	public void setIsSummary(boolean isSummary) {
 		this.isSummary = isSummary;
 	}
 	
+	/**
+	 * Is summary report
+	 * @return true if it is summary report
+	 */
 	public boolean isSummary() {
 		return this.isSummary;
 	}
 
 	/**
-	 * Set Show Help
+	 * Set Show Help (parameter dialog)
 	 * @param showHelp
 	 */
 	public void setShowHelp(String showHelp) {
@@ -205,7 +255,7 @@ public class ProcessInfo implements Serializable
 	}
 
 	/**
-	 * Get Show Help
+	 * Get Show Help (parameter dialog)
 	 * @return String
 	 */
 	public String getShowHelp() {
@@ -216,6 +266,7 @@ public class ProcessInfo implements Serializable
 	 *  String representation
 	 *  @return String representation
 	 */
+	@Override
 	public String toString()
 	{
 		StringBuilder sb = new StringBuilder("ProcessInfo[");
@@ -225,6 +276,8 @@ public class ProcessInfo implements Serializable
 			sb.append(",AD_PInstance_ID=").append(m_AD_PInstance_ID);
 		if (m_Record_ID != 0)
 			sb.append(",Record_ID=").append(m_Record_ID);
+		if (!Util.isEmpty(m_Record_UU))
+			sb.append(",Record_UU=").append(m_Record_UU);
 		if (m_ClassName != null)
 			sb.append(",ClassName=").append(m_ClassName);
 		sb.append(",Error=").append(isError());
@@ -240,9 +293,8 @@ public class ProcessInfo implements Serializable
 		sb.append("]");
 		return sb.toString();
 	}   //  toString
-
 	
-	/**************************************************************************
+	/**
 	 * 	Set Summary
 	 * 	@param summary summary (will be translated)
 	 */
@@ -250,9 +302,10 @@ public class ProcessInfo implements Serializable
 	{
 		m_Summary = summary;
 	}	//	setSummary
+	
 	/**
-	 * Method getSummary
-	 * @return String
+	 * Get summary text
+	 * @return summary text
 	 */
 	public String getSummary ()
 	{
@@ -260,18 +313,19 @@ public class ProcessInfo implements Serializable
 	}	//	getSummary
 
 	/**
-	 * Method setSummary
-	 * @param translatedSummary String
-	 * @param error boolean
+	 * Set summary text
+	 * @param translatedSummary translated summary text
+	 * @param error true if this is error
 	 */
 	public void setSummary (String translatedSummary, boolean error)
 	{
 		setSummary (translatedSummary);
 		setError(error);
 	}	//	setSummary
+	
 	/**
-	 * Method addSummary
-	 * @param additionalSummary String
+	 * Append text to summary
+	 * @param additionalSummary text to append to summary
 	 */
 	public void addSummary (String additionalSummary)
 	{
@@ -279,16 +333,17 @@ public class ProcessInfo implements Serializable
 	}	//	addSummary
 
 	/**
-	 * Method setError
-	 * @param error boolean
+	 * Set is error flag
+	 * @param error is error flag
 	 */
 	public void setError (boolean error)
 	{
 		m_Error = error;
 	}	//	setError
+	
 	/**
-	 * Method isError
-	 * @return boolean
+	 * Is process has error
+	 * @return true if process has error
 	 */
 	public boolean isError ()
 	{
@@ -305,8 +360,8 @@ public class ProcessInfo implements Serializable
 	}	//	setTimeout
 	
 	/**
-	 *	Batch - i.e. UI not blocked
-	 *	@return boolean
+	 *	Batch - i.e. started from server instead of from UI
+	 *	@return true if it is batch processing
 	 */
 	public boolean isBatch()
 	{
@@ -314,8 +369,8 @@ public class ProcessInfo implements Serializable
 	}	//	isBatch
 
 	/**
-	 *	Timeout
-	 * 	@param timeout true still running
+	 *	Set is Timeout
+	 * 	@param timeout true if timeout
 	 */
 	public void setIsTimeout (boolean timeout)
 	{
@@ -323,8 +378,8 @@ public class ProcessInfo implements Serializable
 	}	//	setTimeout
 	
 	/**
-	 *	Timeout - i.e process did not complete
-	 *	@return boolean
+	 *	Is Timeout - i.e process did not complete
+	 *	@return true if process terminated due to transaction timeout
 	 */
 	public boolean isTimeout()
 	{
@@ -332,7 +387,7 @@ public class ProcessInfo implements Serializable
 	}	//	isTimeout
 
 	/**
-	 *	Set Log of Process.
+	 *	Get Log of Process.
 	 *  <pre>
 	 *  - Translated Process Message
 	 *  - List of log entries
@@ -398,16 +453,17 @@ public class ProcessInfo implements Serializable
 	}	//	getLogInfo
 
 	/**
-	 * Method getAD_PInstance_ID
-	 * @return int
+	 * Get AD_PInstance_ID
+	 * @return AD_PInstance_ID
 	 */
 	public int getAD_PInstance_ID()
 	{
 		return m_AD_PInstance_ID;
 	}
+	
 	/**
-	 * Method setAD_PInstance_ID
-	 * @param AD_PInstance_ID int
+	 * Set AD_PInstance_ID
+	 * @param AD_PInstance_ID
 	 */
 	public void setAD_PInstance_ID(int AD_PInstance_ID)
 	{
@@ -415,16 +471,17 @@ public class ProcessInfo implements Serializable
 	}
 
 	/**
-	 * 
-	 * @return int
+	 * Get AD_InfoWindow_ID
+	 * @return AD_InfoWindow_ID
 	 */
 	public int getAD_InfoWindow_ID()
 	{
 		return m_InfoWindowID;
 	}
+	
 	/**
-	 * 
-	 * @param infoWindowID int
+	 * Set AD_InfoWindow_ID 
+	 * @param infoWindowID AD_InfoWindow_ID
 	 */
 	public void setAD_InfoWindow_ID(int infoWindowID)
 	{
@@ -432,16 +489,17 @@ public class ProcessInfo implements Serializable
 	}
 	
 	/**
-	 * Method getAD_Process_ID
-	 * @return int
+	 * Get AD_Process_ID
+	 * @return AD_Process_ID
 	 */
 	public int getAD_Process_ID()
 	{
 		return m_AD_Process_ID;
 	}
+	
 	/**
-	 * Method setAD_Process_ID
-	 * @param AD_Process_ID int
+	 * Set AD_Process_ID
+	 * @param AD_Process_ID
 	 */
 	public void setAD_Process_ID(int AD_Process_ID)
 	{
@@ -449,8 +507,8 @@ public class ProcessInfo implements Serializable
 	}
 
 	/**
-	 * Method getClassName
-	 * @return String or null
+	 * Get process class name
+	 * @return process class name or null
 	 */
 	public String getClassName()
 	{
@@ -458,8 +516,8 @@ public class ProcessInfo implements Serializable
 	}
 	
 	/**
-	 * Method setClassName
-	 * @param ClassName String
+	 * Set process class name
+	 * @param ClassName process class name
 	 */
 	public void setClassName(String ClassName)
 	{
@@ -469,16 +527,17 @@ public class ProcessInfo implements Serializable
 	}	//	setClassName
 
 	/**
-	 * Method getTransientObject
+	 * Get TransientObject for process
 	 * @return Object
 	 */
 	public Object getTransientObject()
 	{
 		return m_TransientObject;
 	}
+	
 	/**
-	 * Method setTransientObject
-	 * @param TransientObject Object
+	 * Set Transient Object for process
+	 * @param TransientObject
 	 */
 	public void setTransientObject (Object TransientObject)
 	{
@@ -486,16 +545,17 @@ public class ProcessInfo implements Serializable
 	}
 
 	/**
-	 * Method getSerializableObject
+	 * Get Serializable Object for process
 	 * @return Serializable
 	 */
 	public Serializable getSerializableObject()
 	{
 		return m_SerializableObject;
 	}
+	
 	/**
-	 * Method setSerializableObject
-	 * @param SerializableObject Serializable
+	 * Set Serializable Object for process
+	 * @param SerializableObject
 	 */
 	public void setSerializableObject (Serializable SerializableObject)
 	{
@@ -503,15 +563,16 @@ public class ProcessInfo implements Serializable
 	}
 
 	/**
-	 * Method getEstSeconds
+	 * Get estimated process duration in seconds
 	 * @return int
 	 */
 	public int getEstSeconds()
 	{
 		return m_EstSeconds;
 	}
+	
 	/**
-	 * Method setEstSeconds
+	 * Set estimated process duration in seconds
 	 * @param EstSeconds int
 	 */
 	public void setEstSeconds (int EstSeconds)
@@ -519,18 +580,18 @@ public class ProcessInfo implements Serializable
 		m_EstSeconds = EstSeconds;
 	}
 
-
 	/**
-	 * Method getTable_ID
-	 * @return int
+	 * Get AD_Table_ID
+	 * @return AD_Table_ID
 	 */
 	public int getTable_ID()
 	{
 		return m_Table_ID;
 	}
+	
 	/**
-	 * Method setTable_ID
-	 * @param AD_Table_ID int
+	 * Set AD_Table_ID
+	 * @param AD_Table_ID
 	 */
 	public void setTable_ID(int AD_Table_ID)
 	{
@@ -538,16 +599,17 @@ public class ProcessInfo implements Serializable
 	}
 
 	/**
-	 * Method getRecord_ID
-	 * @return int
+	 * Get Record_ID
+	 * @return Record_ID
 	 */
 	public int getRecord_ID()
 	{
 		return m_Record_ID;
 	}
+	
 	/**
-	 * Method setRecord_ID
-	 * @param Record_ID int
+	 * Set Record_ID
+	 * @param Record_ID
 	 */
 	public void setRecord_ID(int Record_ID)
 	{
@@ -555,34 +617,53 @@ public class ProcessInfo implements Serializable
 	}
 
 	/**
-	 * Method getTitle
-	 * @return String
+	 * Get Record_UU
+	 * @return Record_UU
+	 */
+	public String getRecord_UU()
+	{
+		return m_Record_UU;
+	}
+	
+	/**
+	 * Set Record_UU
+	 * @param Record_UU
+	 */
+	public void setRecord_UU(String Record_UU)
+	{
+		m_Record_UU = Record_UU;
+	}
+
+	/**
+	 * Get Process Title
+	 * @return process title
 	 */
 	public String getTitle()
 	{
 		return m_Title;
 	}
+	
 	/**
-	 * Method setTitle
-	 * @param Title String
+	 * Set process title
+	 * @param Title
 	 */
 	public void setTitle (String Title)
 	{
 		m_Title = Title;
 	}	//	setTitle
 
-
 	/**
-	 * Method setAD_Client_ID
+	 * Set AD_Client_ID
 	 * @param AD_Client_ID int
 	 */
 	public void setAD_Client_ID (int AD_Client_ID)
 	{
 		m_AD_Client_ID = Integer.valueOf(AD_Client_ID);
 	}
+	
 	/**
-	 * Method getAD_Client_ID
-	 * @return Integer
+	 * Get AD_Client_ID
+	 * @return AD_Client_ID
 	 */
 	public Integer getAD_Client_ID()
 	{
@@ -590,26 +671,26 @@ public class ProcessInfo implements Serializable
 	}
 
 	/**
-	 * Method setAD_User_ID
-	 * @param AD_User_ID int
+	 * Set AD_User_ID
+	 * @param AD_User_ID
 	 */
 	public void setAD_User_ID (int AD_User_ID)
 	{
 		m_AD_User_ID = Integer.valueOf(AD_User_ID);
 	}
+	
 	/**
-	 * Method getAD_User_ID
-	 * @return Integer
+	 * Get AD_User_ID
+	 * @return AD_User_ID
 	 */
 	public Integer getAD_User_ID()
 	{
 		return m_AD_User_ID;
 	}
 
-	
-	/**************************************************************************
-	 * 	Get Parameter
-	 *	@return Parameter Array
+	/**
+	 * 	Get Process Info Parameter
+	 *	@return Process Info Parameter Array
 	 */
 	public ProcessInfoParameter[] getParameter()
 	{
@@ -617,7 +698,7 @@ public class ProcessInfo implements Serializable
 	}	//	getParameter
 
 	/**
-	 * 	Set Parameter
+	 * 	Set Process Info Parameter
 	 *	@param parameter Parameter Array
 	 */
 	public void setParameter (ProcessInfoParameter[] parameter)
@@ -625,19 +706,37 @@ public class ProcessInfo implements Serializable
 		m_parameter = parameter;
 	}	//	setParameter
 
-	
+	/**
+	 * Add log
+	 * @param Log_ID
+	 * @param P_ID
+	 * @param P_Date
+	 * @param P_Number
+	 * @param P_Msg
+	 * @param tableId
+	 * @param recordId
+	 */
 	public void addLog (int Log_ID, int P_ID, Timestamp P_Date, BigDecimal P_Number, String P_Msg,int tableId,int recordId)
 	{
 		addLog (new ProcessInfoLog (Log_ID, P_ID, P_Date, P_Number, P_Msg,tableId,recordId));
 	}
 	
+	/**
+	 * Add log
+	 * @param P_ID
+	 * @param P_Date
+	 * @param P_Number
+	 * @param P_Msg
+	 * @param tableId
+	 * @param recordId
+	 */
 	public void addLog (int P_ID, Timestamp P_Date, BigDecimal P_Number, String P_Msg ,int tableId,int recordId)
 	{
 		addLog (new ProcessInfoLog (P_ID, P_Date, P_Number, P_Msg,tableId, recordId));
 	}
 	
-	/**************************************************************************
-	 * 	Add to Log
+	/**
+	 * 	Add Log
 	 *	@param Log_ID Log ID
 	 *	@param P_ID Process ID
 	 *	@param P_Date Process Date
@@ -650,7 +749,7 @@ public class ProcessInfo implements Serializable
 	}	//	addLog
 
 	/**
-	 * 	Add to Log
+	 * 	Add Log
 	 *	@param P_ID Process ID
 	 *	@param P_Date Process Date
 	 *	@param P_Number Process Number
@@ -662,7 +761,7 @@ public class ProcessInfo implements Serializable
 	}	//	addLog
 
 	/**
-	 * 	Add to Log
+	 * 	Add Log
 	 *	@param logEntry log entry
 	 */
 	public void addLog (ProcessInfoLog logEntry)
@@ -674,9 +773,8 @@ public class ProcessInfo implements Serializable
 		m_logs.add (logEntry);
 	}	//	addLog
 
-
 	/**
-	 * Method getLogs
+	 * Get Logs
 	 * @return ProcessInfoLog[]
 	 */
 	public ProcessInfoLog[] getLogs()
@@ -689,8 +787,92 @@ public class ProcessInfo implements Serializable
 	}	//	getLogs
 
 	/**
-	 * Method getIDs
-	 * @return int[]
+	 * 	Save Status Log to DB immediately
+	 *	@param P_ID Process ID
+	 *	@param P_Date Process Date
+	 *	@param P_Number Process Number
+	 *	@param P_Msg Process Message
+	 *	@return String AD_PInstance_Log_UU
+	 */
+	public String saveStatus (int P_ID, Timestamp P_Date, BigDecimal P_Number, String P_Msg)
+	{
+		return saveLog (new ProcessInfoLog (P_ID, P_Date, P_Number, P_Msg, 0, 0, X_AD_PInstance_Log.PINSTANCELOGTYPE_Status));
+	}	//	saveLog
+	
+	/**
+	 * 	Save Progress Log to DB immediately
+	 *	@param P_ID Process ID
+	 *	@param P_Date Process Date
+	 *	@param P_Number Process Number
+	 *	@param P_Msg Process Message
+	 *	@return String AD_PInstance_Log_UU
+	 */
+	public String saveProgress (int P_ID, Timestamp P_Date, BigDecimal P_Number, String P_Msg)
+	{
+		return saveLog (new ProcessInfoLog (P_ID, P_Date, P_Number, P_Msg, 0, 0, X_AD_PInstance_Log.PINSTANCELOGTYPE_Progress));
+	}	//	saveLog
+
+	/**
+	 * 	Save Log to DB immediately
+	 *	@param logEntry log entry
+	 *	@return String AD_PInstance_Log_UU
+	 */
+	public String saveLog (ProcessInfoLog logEntry)
+	{
+		if (logEntry == null)
+			return "";
+		MPInstanceLog il = new MPInstanceLog(getAD_PInstance_ID(), 
+				logEntry.getLog_ID(), 
+				logEntry.getP_Date(),
+				logEntry.getP_ID(), 
+				logEntry.getP_Number(), 
+				logEntry.getP_Msg(),
+				logEntry.getAD_Table_ID(), 
+				logEntry.getRecord_ID(),
+				logEntry.getPInstanceLogType());
+		il.saveEx();
+		return il.getAD_PInstance_Log_UU();
+	}	//	saveLog
+	
+	/**
+	 * 	Update Progress Log to DB immediately
+	 *	@param pInstanceLogUU AD_PInstance_Log_UU
+	 *	@param P_ID Process ID
+	 *	@param P_Date Process Date
+	 *	@param P_Number Process Number
+	 *	@param P_Msg Process Message
+	 *	@return true if log is successfully updated
+	 */
+	public boolean updateProgress (String pInstanceLogUU, int P_ID, Timestamp P_Date, BigDecimal P_Number, String P_Msg)
+	{
+		return updateLog (new ProcessInfoLog (pInstanceLogUU, P_ID, P_Date, P_Number, P_Msg, X_AD_PInstance_Log.PINSTANCELOGTYPE_Progress));
+	}	//	updateLog
+	
+	/**
+	 * 	Update existing Log immediately
+	 *	@param logEntry log entry
+	 *	@return true if log is successfully updated
+	 */
+	public boolean updateLog (ProcessInfoLog logEntry)
+	{
+		if (logEntry == null)
+			return false;
+		MPInstanceLog il = new MPInstanceLog(logEntry.getAD_PInstance_Log_UU(),
+				getAD_PInstance_ID(), 
+				logEntry.getLog_ID(), 
+				logEntry.getP_Date(),
+				logEntry.getP_ID(), 
+				logEntry.getP_Number(), 
+				logEntry.getP_Msg(),
+				logEntry.getAD_Table_ID(), 
+				logEntry.getRecord_ID(),
+				logEntry.getPInstanceLogType());
+		return il.update();
+	}	//	saveLog
+	
+	/**
+	 * Get ids from process log
+	 * @return ids from process log
 	 */
 	public int[] getIDs()
 	{
@@ -708,16 +890,17 @@ public class ProcessInfo implements Serializable
 	}	//	getIDs
 
 	/**
-	 * Method getLogList
-	 * @return ArrayList
+	 * Get process logs
+	 * @return process logs
 	 */
 	public ArrayList<ProcessInfoLog> getLogList()
 	{
 		return m_logs;
 	}
+	
 	/**
-	 * Method setLogList
-	 * @param logs ArrayList
+	 * Set process logs
+	 * @param logs
 	 */
 	public void setLogList (ArrayList<ProcessInfoLog> logs)
 	{
@@ -733,18 +916,27 @@ public class ProcessInfo implements Serializable
 		return m_transactionName;
 	}
 
+	/**
+	 * Get AD_Process_UU
+	 * @return AD_Process_UU
+	 */
 	public String getAD_Process_UU()
 	{
 		return m_AD_Process_UU;
 	}
 
+	/**
+	 * Set AD_Process_UU
+	 * @param AD_Process_UU
+	 */
 	public void setAD_Process_UU(String AD_Process_UU)
 	{
 		m_AD_Process_UU = AD_Process_UU;
 	}
+	
 	/**
-	 * Set transaction name from this process
-	 * @param trxName
+	 * Set transaction name for this process
+	 * @param trxName transaction name
 	 */
 	public void setTransactionName(String trxName)
 	{
@@ -762,7 +954,7 @@ public class ProcessInfo implements Serializable
 	
 	/**
 	 * Is print preview instead of direct print ? Only relevant if this is a reporting process 
-	 * @return boolean
+	 * @return true if is print preview
 	 */
 	public boolean isPrintPreview()
 	{
@@ -771,7 +963,7 @@ public class ProcessInfo implements Serializable
 	
 	/**
 	 * Is this a reporting process ?
-	 * @return boolean
+	 * @return true if this is reporting process
 	 */
 	public boolean isReportingProcess() 
 	{
@@ -787,9 +979,8 @@ public class ProcessInfo implements Serializable
 		m_reportingProcess = f;
 	}
 	
-	//FR 1906632
 	/**
-	 * Set PDF file generate to Jasper Report
+	 * Set PDF report file generated
 	 * @param f PDF File 
 	 */
 	public void setPDFReport(File f)
@@ -798,7 +989,8 @@ public class ProcessInfo implements Serializable
 	}	
 	
 	/**
-	 * Get PDF file generate to Jasper Report
+	 * Get generated PDF report file
+	 * @return PDF report file
 	 */
 	public File getPDFReport()
 	{
@@ -815,7 +1007,7 @@ public class ProcessInfo implements Serializable
 	}
 	
 	/**
-	 * Set Export
+	 * Set Export flag
 	 * @param export
 	 */
 	public void setExport(boolean export) 
@@ -825,7 +1017,7 @@ public class ProcessInfo implements Serializable
 	
 	/**
 	 * Get Export File Extension
-	 * @param 
+	 * @return export file extension 
 	 */
 	public String getExportFileExtension()
 	{
@@ -859,28 +1051,70 @@ public class ProcessInfo implements Serializable
 		m_exportFile = exportFile;
 	}
 	
+	/**
+	 * Get record ids
+	 * @return record ids
+	 */
 	public List<Integer> getRecord_IDs()
 	{
 		return m_Record_IDs;
 	}
 	
+	/**
+	 * Set record ids
+	 * @param Record_IDs
+	 */
 	public void setRecord_IDs(List<Integer> Record_IDs)
 	{
 		m_Record_IDs = Record_IDs;
 	}
 
+	/**
+	 * Get record uuids
+	 * @return record uuids
+	 */
+	public List<String> getRecord_UUs()
+	{
+		return m_Record_UUs;
+	}
+
+	/**
+	 * Set record uuids
+	 * @param Record_UUs
+	 */
+	public void setRecord_UUs(List<String> Record_UUs)
+	{
+		m_Record_UUs = Record_UUs;
+	}
+
+	/**
+	 * Set row count
+	 * @param rowCount
+	 */
 	public void setRowCount(int rowCount) {
 		m_rowCount = rowCount;
 	}
 
+	/**
+	 * Get row count
+	 * @return row count
+	 */
 	public int getRowCount() {
 		return m_rowCount;
 	}
 
+	/**
+	 * Set PO
+	 * @param po
+	 */
 	public void setPO(PO po) {
 		m_po = po;
 	}
 	
+	/**
+	 * Get PO
+	 * @return PO
+	 */
 	public PO getPO() {
 		return m_po;
 	}
@@ -888,10 +1122,18 @@ public class ProcessInfo implements Serializable
 	/** FileName to be used */
 	private String m_PDFfileName;
 
+	/**
+	 * Get PDF file name
+	 * @return PDF file name
+	 */
 	public String getPDFFileName() {
 		return m_PDFfileName;
 	}
 
+	/**
+	 * Set PDF file name
+	 * @param fileName
+	 */
 	public void setPDFFileName(String fileName) {
 		this.m_PDFfileName = fileName;
 	}
@@ -911,21 +1153,32 @@ public class ProcessInfo implements Serializable
 		if (lastRebootDate == null)
 			return false;
 		
-		List<MPInstance> processInstanceList = new Query(Env.getCtx(), MPInstance.Table_Name, " AD_Process_ID=? AND AD_User_ID=? AND IsProcessing='Y' AND record_ID = ? AND Created > ? ", null)
-				.setParameters(getAD_Process_ID(), getAD_User_ID(), getRecord_ID(), lastRebootDate)
+		StringBuilder whereClause = new StringBuilder(
+				"AD_Process_ID=? AND IsProcessing='Y' AND Record_ID = ? AND Created > ?");
+		List<Object> queryParams = new ArrayList<>(Arrays.asList(getAD_Process_ID(), getRecord_ID(), lastRebootDate));
+
+		if (   MProcess.ALLOWMULTIPLEEXECUTION_NotFromSameUser.equals(multipleExecutions)
+			|| MProcess.ALLOWMULTIPLEEXECUTION_NotFromSameUserAndParameters.equals(multipleExecutions)) {
+			whereClause.append(" AND AD_User_ID = ? ");
+			queryParams.add(getAD_User_ID());
+		}
+
+		List<MPInstance> processInstanceList = new Query(Env.getCtx(), MPInstance.Table_Name, whereClause.toString(), null)
+				.setParameters(queryParams)
 				.setClient_ID()
-				.setOnlyActiveRecords(true)
-				.list();
-		
+				.setOnlyActiveRecords(true).list();
+
 		if (processInstanceList == null || processInstanceList.isEmpty())
 			return false;
-		
-		//Never allow multiple executions
-		if (multipleExecutions.equals(MProcess.ALLOWMULTIPLEEXECUTION_DisallowMultipleExecutions)) 
+
+		// Do not allow concurrent executions
+		if (   MProcess.ALLOWMULTIPLEEXECUTION_NotFromSameUser.equals(multipleExecutions)
+			|| MProcess.ALLOWMULTIPLEEXECUTION_NotFromAnyUser.equals(multipleExecutions))
 			return true;
-		
-		//Disallow multiple executions with the same params
-		if (multipleExecutions.equals(MProcess.ALLOWMULTIPLEEXECUTION_DisallowMultipleExecutionsWithTheSameParameters)) {
+
+		// Do not allow concurrent executions with the same params
+		if (   MProcess.ALLOWMULTIPLEEXECUTION_NotFromAnyUserAndSameParameters.equals(multipleExecutions)
+			|| MProcess.ALLOWMULTIPLEEXECUTION_NotFromSameUserAndParameters.equals(multipleExecutions)) {
 			for (MPInstance instance : processInstanceList) {
 				if (instance.equalParameters(params))
 					return true;
@@ -935,6 +1188,10 @@ public class ProcessInfo implements Serializable
 		return false;
 	}
 	
+	/**
+	 * Get last server reboot timestamp from server session
+	 * @return last server reboot timestamp or null 
+	 */
 	private Timestamp getLastServerRebootDate() {
 		MSession currentSession = MSession.get(Env.getCtx());
 		if (currentSession == null)
@@ -955,16 +1212,24 @@ public class ProcessInfo implements Serializable
 
 	private IProcessUI processUI;
 
+	/**
+	 * Set UI interface for process
+	 * @param processUI
+	 */
 	public void setProcessUI(IProcessUI processUI) {
 		this.processUI = processUI;
 	}
 	
+	/**
+	 * Get UI interface for process
+	 * @return UI interface for process or null
+	 */
 	public IProcessUI getProcessUI() {
 		return processUI;
 	}
 
 	/**
-	 * Determines, if current tab content should be replaced, or a new tab should be opened
+	 * Determines, if current tab content should be replaced, or a new tab should be opened (for report)
 	 * @return true, if current tab content should be replaced
 	 */
 	public boolean isReplaceTabContent() {
@@ -972,14 +1237,14 @@ public class ProcessInfo implements Serializable
 	}
 
 	/**
-	 * Sets, if current tab content should be replaced, or a new tab should be opened
+	 * Sets, if current tab content should be replaced, or a new tab should be opened (from AD_SysConfig)
 	 */
 	public void setReplaceTabContent() {
 		this.m_IsReplaceTabContent = !(MSysConfig.getBooleanValue(MSysConfig.ZK_REPORT_TABLE_OPEN_IN_NEW_TAB, false, Env.getAD_Client_ID(Env.getCtx())));
 	}
 
 	/**
-	 * 
+	 * Get AD_Scheduler_ID
 	 * @return AD_Scheduler_ID or 0 if not running from scheduler
 	 */
 	public int getAD_Scheduler_ID() {
@@ -987,11 +1252,41 @@ public class ProcessInfo implements Serializable
 	}
 
 	/**
-	 * 
+	 * Set AD_Scheduler_ID
 	 * @param AD_Scheduler_ID
 	 */
 	public void setAD_Scheduler_ID(int AD_Scheduler_ID) {
 		this.m_AD_Scheduler_ID = AD_Scheduler_ID;
 	}
 	
+	/**
+	 * @return true if scheduler should notify scheduler recipients with process execution result
+	 */
+	public boolean isNotifyRecipients() {
+		return isNotifyRecipients;
+	}
+
+	/**
+	 * @param isNotifyRecipients if true, scheduler should notify scheduler recipients with process execution result
+	 */
+	public void setNotifyRecipients(boolean isNotifyRecipients) {
+		this.isNotifyRecipients = isNotifyRecipients;
+	}
+	
+	/**
+	 * Get internal report object.<br/>
+	 * For Jasper Report, to get JasperPrint, set export to true and ExportFileExtension to "JasperPrint".
+	 * @return internal report object (for e.g JasperPrint)
+	 */
+	public Serializable getInternalReportObject() {
+		return internalReportObject;
+	}
+	
+	/**
+	 * Set internal report object (for e.g JasperPrint)
+	 * @param reportObject
+	 */
+	public void setInternalReportObject(Serializable reportObject) {
+		internalReportObject = reportObject;
+	}
 }   //  ProcessInfo

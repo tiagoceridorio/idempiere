@@ -24,7 +24,6 @@
  * Contributors:                                                       *
  * - Carlos Ruiz                                                       *
  **********************************************************************/
-
 package org.compiere.process;
 
 import java.util.logging.Level;
@@ -33,11 +32,12 @@ import org.adempiere.exceptions.AdempiereException;
 import org.compiere.model.IMFAMechanism;
 import org.compiere.model.MMFAMethod;
 import org.compiere.model.MMFARegistration;
+import org.compiere.model.MProcessPara;
 import org.compiere.util.AdempiereSystemError;
 import org.compiere.util.Msg;
 
 /**
- *	IDEMPIERE-4782
+ *	IDEMPIERE-4782 Multi-factor authentication
  * 	@author Carlos Ruiz - globalqss - BX Service
  */
 @org.adempiere.base.annotation.Process
@@ -59,8 +59,7 @@ public class MFARegister extends SvrProcess {
 			case "MFA_Method_ID": p_MFA_Method_ID = para.getParameterAsInt(); break;
 			case "ParameterValue": p_ParameterValue = para.getParameterAsString(); break;
 			default:
-				if (log.isLoggable(Level.INFO))
-					log.log(Level.INFO, "Custom Parameter: " + name + "=" + para.getInfo());
+				MProcessPara.validateUnknownParameter(getProcessInfo().getAD_Process_ID(), para);
 				break;
 			}
 		}

@@ -108,9 +108,9 @@ public class ChartRendererServiceImpl implements IChartRendererService {
 			billboard.setTimeSeries(true);
 
 			int noOfPeriod = 0;
-			if (width < MSysConfig.getIntValue("CHART_MIN_WIDTH_3_PERIOD", 230, chartModel.chart.getAD_Client_ID()))
+			if (width < MSysConfig.getIntValue(MSysConfig.CHART_MIN_WIDTH_3_PERIOD, 230, chartModel.chart.getAD_Client_ID()))
 				noOfPeriod = 3;
-			else if (width < MSysConfig.getIntValue("CHART_MIN_WIDTH_6_PERIOD", 320, chartModel.chart.getAD_Client_ID()))
+			else if (width < MSysConfig.getIntValue(MSysConfig.CHART_MIN_WIDTH_6_PERIOD, 320, chartModel.chart.getAD_Client_ID()))
 				noOfPeriod = 6;
 			
 			Calendar c = Calendar.getInstance();
@@ -188,9 +188,9 @@ public class ChartRendererServiceImpl implements IChartRendererService {
 				
 		if (Executions.getCurrent() != null)
 		{
-			String script = "var parent = jq('#" + parent.getUuid() + "');";
-			script += "var billboard = parent.children().first(); ";
-			script += "var div = parent.children().eq(1); ";
+			String script = "(function() {let parent = jq('#" + parent.getUuid() + "');";
+			script += "let billboard = parent.children().first(); ";
+			script += "let div = parent.children().eq(1); ";
 			script += "if (billboard.children().length == 0) {";
 			script += "div.show(); ";
 			script += "billboard.hide(); ";
@@ -198,7 +198,7 @@ public class ChartRendererServiceImpl implements IChartRendererService {
 			script += "else {";
 			script += "div.hide(); ";
 			script += "billboard.show(); ";
-			script += "}";			
+			script += "}})();";			
 			Clients.response(new AuScript(script));
 		}
 		

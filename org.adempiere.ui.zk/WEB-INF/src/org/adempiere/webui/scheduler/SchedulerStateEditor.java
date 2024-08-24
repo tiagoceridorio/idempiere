@@ -38,6 +38,7 @@ import org.compiere.model.StateChangeEvent;
 import org.compiere.model.StateChangeListener;
 import org.compiere.server.AdempiereServerMgr;
 import org.compiere.server.IServerManager;
+import org.compiere.util.DisplayType;
 import org.compiere.util.Env;
 import org.compiere.util.Msg;
 import org.idempiere.distributed.IClusterService;
@@ -47,8 +48,8 @@ import org.zkoss.zk.ui.event.Events;
 import org.zkoss.zk.ui.util.Clients;
 
 /**
+ * Field editor for state ({@link DisplayType#SchedulerState}) of scheduler (AD_Scheduler).
  * @author hengsin
- *
  */
 public class SchedulerStateEditor extends WEditor {
 
@@ -59,7 +60,6 @@ public class SchedulerStateEditor extends WEditor {
 	private int schedulerState;
 
 	/**
-	 * 
 	 * @param gridField
 	 */
 	public SchedulerStateEditor(GridField gridField)
@@ -68,7 +68,6 @@ public class SchedulerStateEditor extends WEditor {
 	}
 	
 	/**
-	 * 
 	 * @param gridField
 	 * @param tableEditor
 	 * @param editorConfiguration
@@ -79,7 +78,6 @@ public class SchedulerStateEditor extends WEditor {
     }
 
 	/**
-	 * 
 	 * @param gridField
 	 * @param rowIndex
 	 */
@@ -89,7 +87,6 @@ public class SchedulerStateEditor extends WEditor {
 	}
 	
 	/**
-	 * 
 	 * @param gridField
 	 * @param rowIndex
 	 * @param tableEditor
@@ -237,6 +234,9 @@ public class SchedulerStateEditor extends WEditor {
 
 	}
 
+	/**
+	 * Register and start a scheduler
+	 */
 	private void schedule() {
 		int id = getAD_Scheduler_ID();
     	if (id <= 0)
@@ -253,8 +253,9 @@ public class SchedulerStateEditor extends WEditor {
 		});			
 	}
 	
-	
-
+	/**
+	 * Stop a scheduler
+	 */
 	private void stop() {
 		int id = getAD_Scheduler_ID();
     	if (id <= 0)
@@ -272,6 +273,9 @@ public class SchedulerStateEditor extends WEditor {
 		});
 	}
 	
+	/**
+	 * Start a scheduler
+	 */
 	private void start() {
 		int id = getAD_Scheduler_ID();
     	if (id <= 0)
@@ -359,6 +363,10 @@ public class SchedulerStateEditor extends WEditor {
 		return false;
 	}
 	
+	/**
+	 * Get scheduler server manager instance
+	 * @return scheduler server manager instance
+	 */
 	private IServerManager getServerMgr() {
 		IServerManager serverMgr = null;
 		IClusterService service = Core.getClusterService();
